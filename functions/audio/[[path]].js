@@ -4,12 +4,18 @@
 // part of a file. This passes each piece through and, when a part is asked for, streams just that part.
 // It streams rather than reading the whole file, so it stays fast and light even for the longest pieces.
 export async function onRequestGet({ request, env }) {
-  const res = await env.ASSETS.fetch(request);
-  const size = Number(res.headers.get('content-length'));
+  let res = await env.ASSETS.fetch(request);
   const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('range') || '');
   const headers = new Headers(res.headers);
   headers.set('accept-ranges', 'bytes');
-  if (res.status !== 200 || !range || !size || !res.body) return new Response(res.body, { status: res.status, headers });
+  if (res.status !== 200 || !range || !res.body) return new Response(res.body, { status: res.status, headers });
+  let size = Number(res.headers.get('content-length'));
+  if (!size) {
+    // The size isn't always given, so read the piece to find it. The part sent back is a view of it, not a copy.
+    const whole = new Uint8Array(await res.arrayBuffer());
+    size = whole.byteLength;
+    res = new Response(whole);
+  }
 
   let start, end;
   if (range[1] === '') {
