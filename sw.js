@@ -8,7 +8,7 @@
    offers "Tap to update" when nothing is playing, and the new version also
    takes over by itself the next time the app is fully closed and reopened.
    It never swaps files in the middle of a session. */
-const VERSION = '2';
+const VERSION = '4';
 const CACHE = 'swellotic-' + VERSION;
 const FILES = [
   './',

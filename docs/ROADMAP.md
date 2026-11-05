@@ -51,7 +51,7 @@ Lloyd should test the installed app on a real iPhone and Android phone and recor
 | "My music app" with Spotify playing: do both continue? | | |
 | Breath slider changes only the breaths | | |
 | Ring/silent switch behaviour | | |
-| Spoken words voice and timing | | |
+| Spoken words clips, once added | | |
 
 **Then decide:**
 
@@ -62,11 +62,23 @@ Don't start a native wrapper without Lloyd's agreement.
 
 ## Phase 3: Reliable sound
 
-- [ ] Detect when the audio context is suspended or interrupted.
-- [ ] Restart sound automatically, in time with the breath, where the device allows it.
-- [ ] Show a clear "Tap to resume sound" prompt where it doesn't.
+- [x] Detect when the audio context is suspended or interrupted.
+- [x] Restart sound automatically, in time with the breath, where the device allows it.
+- [x] Show a clear "Tap to resume sound" prompt where it doesn't.
 - [ ] Add Media Session controls and lock-screen details where supported.
-- [ ] Re-request the screen wake lock after returning to the app.
+- [x] Re-request the screen wake lock after returning to the app.
+
+Lloyd reported that with "My music app", the breaths sometimes kept going but often stopped. The app never restarted sound after the phone paused it. The first three items above fix that, and pass simulated tests in desktop Chrome. They still need checking on a real iPhone and Android phone.
+
+### Phase 3 decisions
+
+- **Restarting:** when the phone pauses the sound, the app tries to restart it as soon as it's back on screen. If the sound hasn't restarted within 1.5 seconds, it shows "Sound paused. Tap to resume."
+- **Staying in time:** the audio clock stops while sound is paused, so the breath carries on from where it stopped. Breath sounds are replanned and fade in over 0.8 seconds.
+- **No bursts:** if the page falls behind, any breath sound or generated music step that should already have started is skipped. Missed breaths never play all at once.
+- **Spoken words:** the phone's built-in voice is gone. The option is hidden until recorded clips exist, and anyone who had it chosen gets the singing bowl instead. The clips play on the audio clock, so they keep exact time and work offline. `tools/make-voice.mjs` makes them with Azure AI Speech, using Lloyd's key on his own computer. The app never contacts Azure.
+- **Breath sounds span the breath:** struck sounds used to ring for a fixed time. Now each lasts the whole in-breath or out-breath. An in-breath swells towards its end, an out-breath settles away, and both are silent as the next breath begins. Lloyd to judge how they sound, especially Wooden marimba and Chime, which were short sounds before.
+- **Keeping sound playing:** a web app can't stop the phone pausing it. On iPhone, "My music app" needs the polite sound mode so Spotify keeps playing, and iOS doesn't let web pages play that kind of sound in the background. A native wrapper could ask for background audio that mixes with other apps. That is Phase 2's decision, and it needs Lloyd's agreement.
+- **Not covered yet:** WebKit bug 291892, where sound can go silent while the browser reports it as playing. The app can't detect that case, so Phase 2 testing should watch for it.
 - [ ] Check long sessions of 90 minutes or more for memory growth, battery drain and timing drift.
 - [ ] Lloyd to review every sound, especially Beach, the room effect and Soft keys.
 
@@ -115,7 +127,7 @@ Whether a breathing cue helps or distracts during focused work is still an open 
 ## Known limitations
 
 - Separate headphone and speaker outputs aren't supported yet. Chrome's `setSinkId` may make this possible on desktop.
-- Spoken words use the device's built-in voice, so quality varies. Recorded voice clips would be more consistent and would work the same offline.
+- Spoken words are hidden until recorded clips are made and checked.
 - Soft keys is a rough generated sketch, not a finished recording.
 - Files added with "Audio files" are lost when the page reloads.
 - Using `ambient` audio on iPhone may mean the silent switch mutes the breaths.

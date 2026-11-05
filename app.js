@@ -46,7 +46,7 @@
   const gainCurve = v => (v / 100) ** 2;
   let ctx = null, A = null, running = false, sessionStart = 0, voice = null, wake = null;
   const ownBuffers = [];
-  let cueNodes = [], speechTimers = [];
+  let cueNodes = [];
 
   function loopBuffer(seconds, channels, make) {
     const rate = ctx.sampleRate, n = Math.floor(seconds * rate), fade = Math.floor(rate * .5);
@@ -101,7 +101,33 @@
       cueNoise: loopBuffer(6, 1, white), brownBuf: null, whiteBuf: null };
     newCueBus();
     applyLevels();
+    loadClips();
+    ctx.onstatechange = () => {
+      if (!running) return;
+      if (ctx.state === 'running') soundBack();
+      else { paused = true; tryResume(); }
+    };
   }
+
+  /* Phones pause web audio when another app takes over, the screen locks or the app leaves the screen.
+     Restart it when Swellotic is back on screen, and ask for a tap where the phone won't allow that. */
+  let paused = false;
+  async function tryResume() {
+    if (!running || !ctx || ctx.state === 'running' || document.hidden) return;
+    try { await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 1500))]); } catch (e) {}
+    if (!running) return;
+    if (ctx.state === 'running') soundBack(); else showResume(true);
+  }
+  function soundBack() {
+    if (!paused) return;
+    paused = false; showResume(false);
+    /* The audio clock stops while paused, so the breath carries on from where it was. Replan the breath sounds and fade in gently. */
+    const t = ctx.currentTime;
+    A.master.gain.cancelScheduledValues(t); A.master.gain.setValueAtTime(0, t); A.master.gain.linearRampToValueAtTime(1, t + .8);
+    switchCue();
+    lockScreen();
+  }
+  function showResume(show) { $('resume').hidden = !show; }
 
   function newCueBus() { A.cueBus = ctx.createGain(); A.cueBus.connect(A.breathBus); }
 
@@ -121,15 +147,16 @@
 
   function playCue(type, start, end) {
     const dur = end - start - .002, rising = type === 'in';
-    if (S.cue === 'none') return;
-    if (S.cue === 'words') return speak(rising ? 'Breathe in' : 'Breathe out', start);
+    /* A breath that should already have started is skipped, so missed breaths never play all at once. */
+    if (S.cue === 'none' || start < ctx.currentTime - .05) return;
+    if (S.cue === 'words') return clip(type, start);
     /* Struck sounds use A on the in-breath and D on the out-breath, which sit with the generated music. */
     const note = rising ? 69 : 62;
-    if (S.cue === 'chime') return bell(midi(note + 12), [[1, 1, 1]], start, .02, 2.2, .3);
-    if (S.cue === 'piano') return bell(midi(note), [[1, 1, 1], [2, .16, .7], [3, .05, .5]], start, .015, 3.6, .3);
-    if (S.cue === 'wood') return bell(midi(note + 12), [[1, 1, 1], [3.9, .12, .3]], start, .006, 1.1, .34);
-    if (S.cue === 'bowl') return bell(midi(note), [[1, .7, 1], [1.004, .7, 1], [2.71, .16, .6]], start, .35, 6, .2);
-    if (S.cue === 'gong') return bell(midi(note - 24), [[1, 1, 1], [1.48, .5, .8], [2.02, .34, .65], [2.76, .16, .5], [3.41, .08, .35]], start, .05, 6, .3);
+    if (S.cue === 'chime') return bell(midi(note + 12), [[1, 1, 1]], start, dur, rising, .02, .3);
+    if (S.cue === 'piano') return bell(midi(note), [[1, 1, 1], [2, .16, .7], [3, .05, .5]], start, dur, rising, .015, .3);
+    if (S.cue === 'wood') return bell(midi(note + 12), [[1, 1, 1], [3.9, .12, .3]], start, dur, rising, .006, .34);
+    if (S.cue === 'bowl') return bell(midi(note), [[1, .7, 1], [1.004, .7, 1], [2.71, .16, .6]], start, dur, rising, .35, .2);
+    if (S.cue === 'gong') return bell(midi(note - 24), [[1, 1, 1], [1.48, .5, .8], [2.02, .34, .65], [2.76, .16, .5], [3.41, .08, .35]], start, dur, rising, .05, .3);
     const env = ctx.createGain(); env.gain.value = 0; env.connect(A.cueBus);
     const shape = rising ? envIn : envOut;
     env.gain.setValueCurveAtTime(curve(x => shape(x) * (S.cue === 'tone' ? .3 : .4)), start, dur);
@@ -150,35 +177,39 @@
     cueNodes.push(src);
   }
 
-  function bell(freq, partials, at, attack, decay, level) {
+  /* Struck sounds last the whole breath. After the strike, an in-breath swells towards its end and an out-breath settles away,
+     both reaching silence as the next breath begins. Higher partials fade sooner, like a real struck note.
+     Levels are lower than a single strike because a held sound carries more. */
+  const swell = x => (.35 + .65 * Math.sin(Math.PI / 2 * x) ** 2) * Math.min(1, (1 - x) / .12);
+  const settle = x => (1 - x) ** 1.6;
+  function bell(freq, partials, at, dur, rising, attack, level) {
+    const body = Math.max(.05, dur - attack - .002), shape = rising ? swell : settle;
     partials.forEach(([ratio, amp, fade]) => {
-      const o = ctx.createOscillator(), g = ctx.createGain(), end = at + attack + decay * fade;
+      const o = ctx.createOscillator(), g = ctx.createGain(), peak = level * amp * .75;
+      const c = curve(x => peak * shape(x) ** (1 / fade));
       o.frequency.value = freq * ratio; o.connect(g); g.connect(A.cueBus);
-      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(level * amp, at + attack);
-      g.gain.exponentialRampToValueAtTime(.0003, end);
-      o.start(at); o.stop(end + .05); cueNodes.push(o);
+      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(c[0], at + attack);
+      g.gain.setValueCurveAtTime(c, at + attack + .001, body);
+      o.start(at); o.stop(at + attack + body + .02); cueNodes.push(o);
     });
   }
-  function pickVoice() {
-    const voices = speechSynthesis.getVoices();
-    const english = voices.filter(v => /^en[-_]GB/i.test(v.lang));
-    const pool = english.length ? english : voices.filter(v => /^en/i.test(v.lang));
-    return pool.find(v => /natural|neural|premium|enhanced|google/i.test(v.name)) || pool[0] || null;
+
+  /* Spoken words are recorded clips made with tools/make-voice.mjs. List them here once they exist, and add them to FILES in sw.js.
+     Until then the option is hidden, because the phone's built-in voice sounded poor. */
+  const VOICE_CLIPS = null; // e.g. { in: 'audio/voice/breathe-in.mp3', out: 'audio/voice/breathe-out.mp3' }
+  let voiceClips = null;
+  function loadClips() {
+    if (!VOICE_CLIPS || voiceClips) return voiceClips;
+    voiceClips = Promise.all(Object.entries(VOICE_CLIPS).map(([k, url]) =>
+      fetch(url).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => [k, buf])))
+      .then(Object.fromEntries, () => null);
+    voiceClips.then(c => { A.clips = c; });
+    return voiceClips;
   }
-  function say(words, volume) {
-    const u = new SpeechSynthesisUtterance(words), voice = pickVoice();
-    if (voice) u.voice = voice;
-    u.lang = voice ? voice.lang : 'en-GB'; u.rate = .75; u.volume = volume;
-    speechSynthesis.speak(u);
-  }
-  const canSpeak = () => 'speechSynthesis' in window;
-  function unlockSpeech() { if (canSpeak()) say(' ', 0); }
-  function speak(words, at) {
-    if (!canSpeak() || !S.breathVol) return;
-    speechTimers.push(setTimeout(() => {
-      speechTimers.shift();
-      if (running && S.cue === 'words') say(words, Math.min(1, S.breathVol / 70));
-    }, Math.max(0, (at - ctx.currentTime) * 1000)));
+  function clip(type, at) {
+    const buf = A.clips && A.clips[type];
+    if (!buf) return;
+    const s = ctx.createBufferSource(); s.buffer = buf; s.connect(A.cueBus); s.start(at); cueNodes.push(s);
   }
 
   function pad(out, notes, at) {
@@ -234,7 +265,7 @@
       low.connect(out); lp.connect(swell); swell.connect(out);
       looped(b.brown, low); looped(b.white, lp);
       let next = t + .1;
-      v.tick = horizon => {
+      v.tick = (now, horizon) => { if (next < now) next = now + .05;
         while (next < horizon) {
           const dur = 8 + Math.random() * 5, peak = .2 + Math.random() * .12;
           swell.gain.linearRampToValueAtTime(peak, next + dur * .42);
@@ -258,7 +289,7 @@
       lp.type = 'lowpass'; lp.frequency.value = 480; g.gain.value = .75; hp.type = 'highpass'; hp.frequency.value = 1500;
       lp.connect(g); g.connect(out); hp.connect(out); looped(b.brown, lp);
       let next = t + .2;
-      v.tick = horizon => {
+      v.tick = (now, horizon) => { if (next < now) next = now + .05;
         while (next < horizon) {
           const s = ctx.createBufferSource(), e = ctx.createGain(), len = .005 + Math.random() * .02;
           s.buffer = b.white; s.connect(e); e.connect(hp);
@@ -270,12 +301,12 @@
     } else if (kind === 'ambient') {
       const chords = [[50, 57, 62, 66, 69], [47, 54, 59, 62, 66], [43, 50, 57, 62, 66], [45, 52, 57, 61, 64]];
       let next = t + .1, i = 0;
-      v.tick = horizon => { while (next < horizon) { pad(out, chords[i++ % 4], next); next += 13; } };
+      v.tick = (now, horizon) => { if (next < now) next = now + .05; while (next < horizon) { pad(out, chords[i++ % 4], next); next += 13; } };
     } else if (kind === 'keys') {
       const chords = [[50, 60, 64, 65, 69], [43, 59, 64, 65, 69], [48, 59, 62, 64, 67], [45, 60, 64, 67, 71]];
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1700; lp.connect(out);
       let next = t + .1, i = 0;
-      v.tick = horizon => {
+      v.tick = (now, horizon) => { if (next < now) next = now + .05;
         while (next < horizon) {
           const c = chords[i++ % 4]; key(lp, c[0], next, .16);
           [.75, 1.5, 2.25, 3, 3.75, 4.5].forEach(off => {
@@ -327,8 +358,6 @@
     oldBus.gain.setTargetAtTime(0, now, .04);
     oldNodes.forEach(n => { try { n.stop(now + .3); } catch (e) {} });
     setTimeout(() => oldBus.disconnect(), 500);
-    speechTimers.forEach(clearTimeout); speechTimers = [];
-    if (canSpeak()) speechSynthesis.cancel();
     cueNodes = []; newCueBus();
     const current = phases.find(p => now >= p.start && now < p.end);
     if (current && current.end - now > (S.cue === 'words' ? 1 : .25)) playCue(current.type, now + .03, current.end);
@@ -340,7 +369,7 @@
   function tick() {
     schedule();
     if (!running) return;
-    if (voice) voice.tick(ctx.currentTime + 5);
+    if (voice) voice.tick(ctx.currentTime, ctx.currentTime + 5);
     const elapsed = ctx.currentTime - sessionStart;
     $('clock').textContent = fmt(elapsed);
     if (S.limit && elapsed >= S.limit * 60) stop('Session finished.');
@@ -353,12 +382,12 @@
     ensureAudio();
     setSession();
     await ctx.resume();
-    if (S.cue === 'words') unlockSpeech();
-    running = true; sessionStart = ctx.currentTime;
+    if (S.cue === 'words') await loadClips();
+    running = true; paused = false; showResume(false); sessionStart = ctx.currentTime;
     phases = []; nextStart = ctx.currentTime + .3; cueNodes = [];
     A.master.gain.cancelScheduledValues(sessionStart);
     A.master.gain.setValueAtTime(0, sessionStart); A.master.gain.linearRampToValueAtTime(1, sessionStart + .8);
-    applyLevels(); voice = startVoice(S.track); schedule(); voice.tick(ctx.currentTime + 5);
+    applyLevels(); voice = startVoice(S.track); schedule(); voice.tick(ctx.currentTime, ctx.currentTime + 5);
     setGo(); $('clock').textContent = fmt(0); $('clock').hidden = false;
     $('status').textContent = S.track === 'own' && !ownBuffers.length ? 'Add audio files to hear your music.' : '';
     lockScreen();
@@ -366,10 +395,8 @@
   function stop(message) {
     const t = ctx.currentTime;
     A.master.gain.cancelScheduledValues(t); A.master.gain.setTargetAtTime(0, t, .15);
-    stopVoice(voice); voice = null; running = false;
+    stopVoice(voice); voice = null; running = false; paused = false; showResume(false);
     const nodes = cueNodes; cueNodes = [];
-    speechTimers.forEach(clearTimeout); speechTimers = [];
-    if (canSpeak()) speechSynthesis.cancel();
     setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch (e) {} }); if (!running) ctx.suspend(); }, 700);
     setGo(); $('clock').hidden = true;
     $('status').textContent = message || 'Press play to begin.';
@@ -505,7 +532,7 @@
     $('word').hidden = !S.words; $('timing').hidden = !S.countdown;
     document.documentElement.style.setProperty('--tint', PALETTES[S.palette].tint);
     [['breathVol', 0, 100], ['musicVol', 0, 100], ['bpm', 2, 12]].forEach(([id, lo, hi]) => $(id).style.setProperty('--v', ($(id).value - lo) / (hi - lo) * 100 + '%'));
-    $('cueNote').hidden = S.cue !== 'words'; $('own').hidden = S.track !== 'own'; $('trackNote').textContent = TRACKS[S.track][1];
+    $('own').hidden = S.track !== 'own'; $('trackNote').textContent = TRACKS[S.track][1];
   }
   const bind = (id, key, cast, after) => $(id).addEventListener('input', e => {
     S[key] = cast(e.target); save(); paint(); applyLevels(); if (after) after();
@@ -519,7 +546,8 @@
   bind('countdown', 'countdown', e => e.checked);
   chips($('limit'), 'limit', LIMITS, 'limit', () => { S.limit = +S.limit; save(); paint(); });
   chips($('ratio'), 'ratio', RATIOS, 'ratio', () => { paint(); resetPreview(); });
-  chips($('cue'), 'cue', CUES, 'cue', () => { switchCue(); if (S.cue === 'words') unlockSpeech(); paint(); });
+  if (!VOICE_CLIPS) { delete CUES.words; if (S.cue === 'words') S.cue = 'bowl'; }
+  chips($('cue'), 'cue', CUES, 'cue', () => { if (S.cue === 'words' && ctx) loadClips().then(switchCue); else switchCue(); paint(); });
   chips($('track'), 'track', TRACKS, 'track', () => { setSession(); paint(); refreshVoice(); });
   chips($('visual'), 'visual', VISUALS, 'visual', paint);
   chips($('palette'), 'palette', Object.fromEntries(Object.entries(PALETTES).map(([k, v]) => [k, v.name])), 'palette', paint);
@@ -547,7 +575,18 @@
   $('quiet').addEventListener('click', () => setSheet($('app').classList.contains('quiet')));
   $('done').addEventListener('click', () => setSheet(false));
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && innerWidth < 900) setSheet(false); });
-  document.addEventListener('visibilitychange', () => { if (running && !document.hidden) lockScreen(); });
+  const backOnScreen = () => { if (running && !document.hidden) { lockScreen(); tryResume(); } };
+  document.addEventListener('visibilitychange', backOnScreen);
+  addEventListener('pageshow', backOnScreen);
+  addEventListener('focus', backOnScreen);
+  /* A tap counts as permission to play, which phones need before sound can restart after some interruptions. */
+  $('resume').addEventListener('click', () => {
+    if (!running) return;
+    paused = true;
+    ctx.resume().then(() => { if (ctx.state === 'running') soundBack(); }).catch(() => {
+      $('status').textContent = 'Sound could not restart. Press stop, then play.';
+    });
+  });
 
   /* Larger screens start with the everyday panels open; phones start with only the volumes. */
   const opened = S.open || (innerWidth >= 900 ? ['pace', 'music'] : ['pace']);

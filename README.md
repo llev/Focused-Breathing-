@@ -9,7 +9,7 @@ A breathing guide with music or ambient sound, and a separate volume for each. I
 ## What it does
 
 - **Breathing pace:** 2 to 12 breaths a minute, with even or longer out-breaths, and an option to slow down gradually
-- **Breath sounds:** singing bowl, gong, spoken words, soft piano, wooden marimba, soft hum, chime, ocean or silent
+- **Breath sounds:** singing bowl, gong, soft piano, wooden marimba, soft hum, chime, ocean or silent, each lasting the whole breath. Spoken words return once recorded clips are added.
 - **Background sound:** brown noise, pink noise, rain, beach, stream, wind, fireplace, ambient chords or soft keys, all generated in the browser
 - **Your own audio:** add audio files, or play Spotify, Apple Music or another app alongside it
 - **Separate volumes:** breath and music each have their own slider
@@ -43,6 +43,7 @@ Bump `VERSION` in `sw.js` with every release. Without that, people who have alre
 | `manifest.webmanifest` | App name, colours and icons for installing |
 | `icons/` | App icons, drawn in `icon.svg` |
 | `fonts/` | Bundled fonts and their licences |
+| `tools/make-voice.mjs` | Makes the spoken words clips with Azure AI Speech. Run once, not part of the app |
 | `CLAUDE.md` | Project rules and context for Claude Code |
 | `docs/ROADMAP.md` | Work needed to make this a publishable web app |
 

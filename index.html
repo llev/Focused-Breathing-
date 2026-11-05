@@ -44,6 +44,7 @@
     </div>
     <div class="foot">
       <p id="status" role="status">Press play to begin.</p>
+      <button id="resume" class="update glass" type="button" hidden>Sound paused. Tap to resume.</button>
       <button id="update" class="update glass" type="button" hidden>A new version is ready. Tap to update.</button>
       <div class="bar glass">
         <button id="go" type="button" aria-label="Start">
@@ -71,7 +72,7 @@
       <div class="panel-body">
         <div class="row"><label for="bpm">Breaths per minute <output id="bpmOut" for="bpm"></output></label>
           <input id="bpm" type="range" min="2" max="12" step="0.5"></div>
-        <fieldset><legend>Breath sound</legend><div class="chips" id="cue"></div><p class="note" id="cueNote" hidden>Uses your device's built-in voice, so it will sound different on each device.</p></fieldset>
+        <fieldset><legend>Breath sound</legend><div class="chips" id="cue"></div></fieldset>
         <fieldset><legend>Breathing pattern</legend><div class="chips seg" id="ratio"></div></fieldset>
         <label class="check"><span>Slow down gradually<small>Starts at 10 breaths a minute and reaches your pace over 3 minutes.</small></span><input id="ease" type="checkbox"></label>
         <p class="note">Speed changes apply from the next breath. If you feel light-headed, stop and breathe normally.</p>
