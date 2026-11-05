@@ -8,7 +8,7 @@
    offers "Tap to update" when nothing is playing, and the new version also
    takes over by itself the next time the app is fully closed and reopened.
    It never swaps files in the middle of a session. */
-const VERSION = '13';
+const VERSION = '14';
 const CACHE = 'swellotic-' + VERSION;
 /* Classical recordings kept for offline use. This store is not versioned, so app updates don't throw saved music away. */
 const MUSIC = 'swellotic-music';
@@ -34,9 +34,15 @@ const FILES = [
 ];
 
 self.addEventListener('install', event => {
-  /* cache: 'reload' skips the browser's HTTP cache, so a new version never stores old copies of the files. */
-  event.waitUntil(caches.open(CACHE).then(cache =>
-    cache.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))));
+  /* cache: 'reload' skips the browser's HTTP cache, so a new version never stores old copies of the files.
+     Some hosts redirect, for example Cloudflare sends index.html to / and privacy.html to /privacy. Browsers refuse a
+     stored redirect when opening a page, so each file is stored as the page it ends up at. */
+  event.waitUntil(caches.open(CACHE).then(cache => Promise.all(FILES.map(async f => {
+    const res = await fetch(new Request(f, { cache: 'reload' }));
+    if (!res.ok) throw new Error(`${f} failed to download`);
+    const clean = res.redirected ? new Response(await res.blob(), { status: 200, headers: res.headers }) : res;
+    await cache.put(f, clean);
+  }))));
 });
 
 self.addEventListener('activate', event => {
@@ -54,10 +60,13 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   if (new URL(req.url).pathname.includes('/audio/classical/')) { event.respondWith(music(req)); return; }
   if (req.mode === 'navigate') {
-    /* The Privacy and Help pages open as themselves. Any other page address inside the app, including ones with
-       ?query strings, opens the cached app. */
+    /* The Privacy and Help pages open as themselves, with or without ".html", because Cloudflare drops it.
+       Any other page address inside the app, including ones with ?query strings, opens the cached app. */
+    const path = new URL(req.url).pathname;
     event.respondWith(caches.open(CACHE)
-      .then(cache => cache.match(req, { ignoreSearch: true }).then(page => page || cache.match('index.html')))
+      .then(async cache => await cache.match(req, { ignoreSearch: true })
+        || (!/\.html$|\/$/.test(path) && await cache.match(path + '.html'))
+        || await cache.match('./'))
       .then(hit => hit || fetch(req)));
     return;
   }

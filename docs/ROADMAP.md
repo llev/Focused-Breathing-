@@ -19,7 +19,9 @@ Work through these phases in order. Tick items off as they're finished. Phase 2 
 - [x] Bundle the fonts locally and remove the Google Fonts links. This supports offline use and stops visitor data going to Google.
 - [x] Add a service worker that caches the app files for offline use.
 - [x] Update the service worker safely so people don't get stuck on an old version.
-- [ ] Deploy to Cloudflare Pages at `swellotic.com`. Lloyd connects the GitHub repo in the Cloudflare dashboard, with no build command and the repo root as the output folder.
+- [x] Deploy to Cloudflare Pages: live at `focused-breathing.pages.dev` on 5 November 2026, with no build command and the repo root as the output folder.
+- [ ] Add `swellotic.com` as the Pages project's custom domain.
+- **Cloudflare quirks (5 November 2026):** Pages drops `.html` from addresses with a redirect, so `sw.js` stores each file as the page it ends up at and opens `/privacy` as `privacy.html`. Pages also ignores range requests for static files, which Safari needs to play audio, so `functions/audio/[[path]].js` answers them for the Classical mix. Each music request then counts towards the free plan's 100,000 function requests a day.
 
 **Done when:** the app installs on iPhone, Android and desktop Chrome, and opens and plays with no connection.
 
