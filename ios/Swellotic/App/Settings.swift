@@ -52,6 +52,7 @@ struct Settings: Codable, Equatable {
     var breathVolume = 35.0
     var musicVolume = 55.0
     var room = true
+    var lowerMusicApp = true
     var ease = false
     var track = MusicTrack.brown
     var limit = 0
@@ -77,6 +78,7 @@ struct Settings: Codable, Equatable {
         breathVolume = v(.breathVolume, d.breathVolume)
         musicVolume = v(.musicVolume, d.musicVolume)
         room = v(.room, d.room)
+        lowerMusicApp = v(.lowerMusicApp, d.lowerMusicApp)
         ease = v(.ease, d.ease)
         track = v(.track, d.track)
         limit = v(.limit, d.limit)

@@ -148,10 +148,16 @@ final class AudioController {
         c.ease.store(new.ease, ordering: .relaxed)
         c.cue.store(new.sound.rawValue, ordering: .relaxed)
         c.track.store(new.track.rawValue, ordering: .relaxed)
-        c.breathGain.set(volumeCurve(new.breathVolume) * 0.9)
+        // Music apps play mastered tracks close to full scale, so breaths get extra headroom alongside them.
+        // The limiter catches any peaks.
+        c.breathGain.set(volumeCurve(new.breathVolume) * 0.9 * (new.track == .musicApp ? Self.musicAppBoost : 1))
         c.musicGain.set(volumeCurve(new.musicVolume))
         if built { applyRoom() }
         if rampTask == nil && filesPlaying { player.volume = fileVolume }
+        if isPlaying && old.lowerMusicApp != new.lowerMusicApp && new.track == .musicApp {
+            configureSession()
+            try? AVAudioSession.sharedInstance().setActive(true)
+        }
         guard isPlaying, old.track != new.track else { return }
         configureSession()
         if new.track == .files { startFiles() } else if old.track == .files { stopFiles() }
@@ -168,9 +174,17 @@ final class AudioController {
         roomReverb.wetDryMix = on ? 50 : 0
     }
 
+    /// About 9.5 dB louder breaths with "My music app".
+    static let musicAppBoost = 3.0
+
+    /// "Lower my music app" asks iOS to duck other apps for the whole session. iOS sets how much, and it's a steady
+    /// reduction, never one that follows the breath.
     private func configureSession() {
         let session = AVAudioSession.sharedInstance()
-        let options: AVAudioSession.CategoryOptions = settings.track == .musicApp ? [.mixWithOthers] : []
+        var options: AVAudioSession.CategoryOptions = []
+        if settings.track == .musicApp {
+            options = settings.lowerMusicApp ? [.mixWithOthers, .duckOthers] : [.mixWithOthers]
+        }
         if session.category != .playback || session.categoryOptions != options {
             try? session.setCategory(.playback, mode: .default, options: options)
         }

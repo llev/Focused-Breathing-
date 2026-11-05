@@ -84,10 +84,13 @@ struct SettingsSheet: View {
                 }
             }
             Note(text: s.track.note)
-            ToggleRow(title: "Put music in the room", detail: "Keeps the breath close and makes the music sound further away in your headphones.",
-                      isOn: $model.settings.room, tint: tint)
-                .disabled(s.track == .musicApp)
-                .opacity(s.track == .musicApp ? 0.45 : 1)
+            if s.track == .musicApp {
+                ToggleRow(title: "Lower my music app", detail: "Turns your music app down while Swellotic plays, so the breath is easier to hear.",
+                          isOn: $model.settings.lowerMusicApp, tint: tint)
+            } else {
+                ToggleRow(title: "Put music in the room", detail: "Keeps the breath close and makes the music sound further away in your headphones.",
+                          isOn: $model.settings.room, tint: tint)
+            }
         }
     }
 

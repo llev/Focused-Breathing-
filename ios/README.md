@@ -3,7 +3,7 @@
 A native SwiftUI version of Swellotic. It has the same breathing timeline, breath sounds, generated music, scenes and launch screen as the web app. It also does what a web app can't on iPhone:
 
 - **Keeps playing when the screen locks** or you switch apps, using iOS background audio.
-- **Plays alongside Spotify or Apple Music.** With "My music app", Swellotic mixes with them instead of stopping them.
+- **Plays alongside Spotify or Apple Music.** With "My music app", Swellotic mixes with them instead of stopping them, and can turn them down while it plays.
 - **Ignores the silent switch**, so the breaths stay audible.
 - **Lock-screen controls** for play and stop when Swellotic is playing its own music.
 - **Remembers settings** on the phone. Nothing leaves the device.
