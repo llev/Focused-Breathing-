@@ -5,7 +5,8 @@
 @font-face { font-family: "Nunito"; font-style: normal; font-weight: 300; font-display: swap; src: url("fonts/nunito-latin-300-normal.woff2") format("woff2"); }
 
 /* Page basics: safe-area padding keeps content clear of the iPhone notch and home bar. */
-:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* The status bar and home indicator space is padding inside the body, so the body reaches the screen's edges and nothing,
+   such as the player bar's shadow, is cut off in a hard line above the home indicator. */
 body { margin: 0; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
@@ -20,15 +21,19 @@ img { max-width: 100%; }
   --round: ui-rounded, "SF Pro Rounded", "Nunito", -apple-system, system-ui, sans-serif;
 }
 *, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; overflow: hidden; }
+/* The app fills the visible screen. --app-height and --short come from fitScreen in app.js, because iPhone CSS heights can
+   include space under Safari's toolbar, or come up one status bar short in the installed app. */
+html { height: 100%; height: 100dvh; height: var(--app-height, 100dvh); overflow: hidden; }
+body { height: 100%; overflow: hidden; }
 body {
   background: var(--night); color: var(--ink); font: 400 16px/1.4 var(--body);
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
-#tide { position: fixed; inset: 0; width: 100%; height: 100%; }
+#tide { position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100lvh; height: max(var(--app-height, 100lvh), 100lvh); }
 .glass {
   background: var(--glass); border: 1px solid var(--hair);
   -webkit-backdrop-filter: blur(30px) saturate(170%); backdrop-filter: blur(30px) saturate(170%);
@@ -44,10 +49,6 @@ body {
 .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 h1 { margin: 0; font: 600 1.0625rem/1.2 var(--body); letter-spacing: -.01em; text-shadow: 0 1px 10px rgba(0, 0, 0, .45); }
 .tagline { margin: 2px 0 0; font-size: .875rem; color: var(--ink); text-shadow: 0 1px 10px rgba(0, 0, 0, .6); }
-.clock {
-  font-size: .875rem; font-weight: 500; font-variant-numeric: tabular-nums;
-  padding: 5px 12px; border-radius: 999px;
-}
 .phase { display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; text-align: center; min-height: 0; }
 #word {
   font: 300 clamp(4.5rem, 14vw, 8.5rem)/1 var(--round); letter-spacing: -.02em;
@@ -57,6 +58,39 @@ h1 { margin: 0; font: 600 1.0625rem/1.2 var(--body); letter-spacing: -.01em; tex
 .foot { display: grid; gap: 10px; justify-items: center; }
 #status { margin: 0; font-size: .9375rem; font-weight: 500; text-align: center; text-shadow: 0 1px 10px rgba(0, 0, 0, .6); }
 #status:empty { display: none; }
+.done-btn { background: transparent; color: var(--tint); font-weight: 600; min-height: 44px; padding: 0 6px; }
+
+/* Session button under the breathing word, and the drawer it opens. */
+.session-btn {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 6px 16px 6px 12px; margin-top: 6px;
+  border-radius: 999px; font-size: .9375rem; font-weight: 500; font-variant-numeric: tabular-nums;
+}
+.session-btn svg { width: 19px; height: 19px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.scrim { position: fixed; inset: 0; bottom: calc(-1 * var(--short, 0px)); z-index: 11; background: rgba(8, 6, 14, .45); opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
+.scrim.open { opacity: 1; visibility: visible; }
+.drawer {
+  position: fixed; z-index: 12; left: 0; right: 0; bottom: calc(-1 * var(--short, 0px)); max-width: 520px; max-height: 88%; margin-inline: auto;
+  display: flex; flex-direction: column; overflow: hidden; border-radius: 28px 28px 0 0;
+  background: var(--sheet); border: 1px solid var(--hair); border-bottom: 0; box-shadow: 0 -16px 50px rgba(0, 0, 0, .4);
+  -webkit-backdrop-filter: blur(34px) saturate(170%); backdrop-filter: blur(34px) saturate(170%);
+  transform: translateY(105%); visibility: hidden; transition: transform .32s cubic-bezier(.2, .9, .3, 1), visibility .32s;
+}
+.drawer.open { transform: none; visibility: visible; }
+.drawer:focus { outline: none; }
+.drawer-head {
+  display: flex; flex: none; justify-content: space-between; align-items: center; background: #1d1827;
+  padding: 10px max(20px, env(safe-area-inset-right, 0px)) 6px max(20px, env(safe-area-inset-left, 0px));
+}
+.drawer-head h2 { font-size: 1.25rem; }
+.drawer-body {
+  display: grid; gap: 18px; overflow-y: auto; overscroll-behavior: contain;
+  padding: 14px max(20px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+}
+.pane { display: grid; gap: 16px; }
+/* Timer and Interval tabs, styled like the breathing pattern switch. */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: 14px; background: var(--well); }
+.tab { min-height: 44px; border-radius: 11px; background: transparent; font-size: .9375rem; font-weight: 600; color: var(--soft); }
+.tab[aria-selected="true"] { background: #fff; color: var(--on-tint); box-shadow: 0 2px 7px rgba(0, 0, 0, .25); }
 .update { min-height: 44px; padding: 8px 18px; border-radius: 999px; font-size: .9375rem; font-weight: 500; }
 .bar {
   width: 100%; max-width: 580px; border-radius: 30px; padding: 12px 14px;
@@ -101,7 +135,6 @@ input[type=range]:disabled { opacity: .45; }
 .desk-body { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
 .desk-body::-webkit-scrollbar { display: none; }
 .sheet-head { display: none; }
-.pair { display: grid; gap: 12px; align-items: start; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .panel { border-radius: 22px; min-width: 0; flex: none; }
 .panel summary {
   list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto;
@@ -144,14 +177,24 @@ legend { padding: 0; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
 .check input:checked::after { transform: translateX(20px); }
 .check input:disabled { opacity: .45; }
 .note { margin: 0; color: var(--soft); font-size: .875rem; }
-.file { display: inline-flex; min-height: 42px; align-items: center; padding: 8px 16px; border-radius: 14px; background: var(--well); font-weight: 500; cursor: pointer; }
-#files { margin: 0; padding-left: 18px; font-size: .875rem; color: var(--soft); overflow-wrap: anywhere; }
+/* Classical mix on the main screen: what's playing, with previous, next and repeat-one controls. */
+.now {
+  width: 100%; max-width: 580px; border-radius: 22px; padding: 6px 8px 6px 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px; align-items: center;
+}
+.now-info { margin: 0; display: grid; min-width: 0; font-size: .9375rem; font-weight: 600; }
+.now-info > span, .now-info small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.now-info small { color: var(--soft); font-size: .8125rem; font-weight: 400; font-variant-numeric: tabular-nums; }
+#pieceTime:not(:empty) + span::before { content: " · "; }
+.now .round { width: 44px; height: 44px; background: transparent; }
+.piece { display: grid; gap: 10px; padding: 12px 14px; border-radius: 16px; background: var(--well); }
+.round[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 :focus-visible, .chips input:focus-visible + span, .file:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
 @media (max-width: 899px) {
   .app, .app.quiet { grid-template-columns: minmax(0, 1fr); }
   .desk, .app.quiet .desk {
-    display: flex; position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; max-width: 620px; margin-inline: auto; max-height: 84%;
+    display: flex; position: fixed; z-index: 5; left: 0; right: 0; bottom: calc(-1 * var(--short, 0px)); max-width: 620px; margin-inline: auto; max-height: 84%;
     overflow: hidden; border-radius: 28px 28px 0 0; background: var(--sheet); border: 1px solid var(--hair); border-bottom: 0;
     -webkit-backdrop-filter: blur(34px) saturate(170%); backdrop-filter: blur(34px) saturate(170%);
     box-shadow: 0 -16px 50px rgba(0, 0, 0, .4); transition: transform .32s cubic-bezier(.2, .9, .3, 1), visibility .32s;
@@ -163,16 +206,14 @@ legend { padding: 0; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
   }
   .desk-body { padding: 10px max(14px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
   .sheet-head h2 { font-size: 1.25rem; }
-  #done { background: transparent; color: var(--tint); font-weight: 600; min-height: 44px; padding: 0 6px; }
 }
-@media (max-width: 599px) { .pair { grid-template-columns: minmax(0, 1fr); } }
 @media (max-height: 640px) { #go { width: 54px; height: 54px; } #word { font-size: 4rem; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* Launch screen: the sun rises behind the swell like a breath in, the name settles, then the tagline arrives one word at a time.
    It fades away by itself after about two and a half seconds, and a tap or key press skips it. */
 .splash {
-  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px;
+  position: fixed; inset: 0; bottom: calc(-1 * var(--short, 0px)); z-index: 20; display: grid; place-items: center; padding: 24px;
   background: radial-gradient(120% 80% at 50% 40%, #2a1238 0%, var(--night) 70%);
   animation: splash-out .5s cubic-bezier(.4, 0, .2, 1) 2.1s forwards;
 }

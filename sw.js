@@ -8,14 +8,17 @@
    offers "Tap to update" when nothing is playing, and the new version also
    takes over by itself the next time the app is fully closed and reopened.
    It never swaps files in the middle of a session. */
-const VERSION = '4';
+const VERSION = '11';
 const CACHE = 'swellotic-' + VERSION;
+/* Classical recordings kept for offline use. This store is not versioned, so app updates don't throw saved music away. */
+const MUSIC = 'swellotic-music';
 const FILES = [
   './',
   'index.html',
   'styles.css',
   'app.js',
   'manifest.webmanifest',
+  'classical.json',
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -35,7 +38,7 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k.startsWith('swellotic-') && k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('swellotic-') && k !== CACHE && k !== MUSIC).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -46,6 +49,7 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (new URL(req.url).pathname.includes('/audio/classical/')) { event.respondWith(music(req)); return; }
   if (req.mode === 'navigate') {
     /* Any page address inside the app, including ones with ?query strings, opens the cached app. */
     event.respondWith(caches.open(CACHE)
@@ -57,3 +61,26 @@ self.addEventListener('fetch', event => {
     .then(cache => cache.match(req, { ignoreSearch: true }))
     .then(hit => hit || fetch(req)));
 });
+
+/* Saved pieces are served from the music store. Phones ask for audio a part at a time, so answer those partial requests
+   from the saved copy. Pieces that aren't saved come from the network as normal. */
+async function music(req) {
+  const hit = await (await caches.open(MUSIC)).match(req.url);
+  if (!hit) return fetch(req);
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get('range') || '');
+  if (!range) return hit;
+  const blob = await hit.blob(), size = blob.size;
+  let start = range[1] === '' ? size - Number(range[2]) : Number(range[1]);
+  let end = range[1] === '' || range[2] === '' ? size - 1 : Math.min(Number(range[2]), size - 1);
+  start = Math.max(0, start);
+  if (start >= size || start > end) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
+  return new Response(blob.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      'Content-Type': hit.headers.get('Content-Type') || 'audio/mpeg',
+      'Content-Range': `bytes ${start}-${end}/${size}`,
+      'Content-Length': String(end - start + 1),
+      'Accept-Ranges': 'bytes'
+    }
+  });
+}
