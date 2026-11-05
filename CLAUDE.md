@@ -1,4 +1,6 @@
-# Breathing Room
+# Swellotic
+
+Tagline: Breathe. Listen. Focus.
 
 A breathing guide with music or ambient sound, and separate volumes for each. It began with Lloyd's own way of working: Breathing Zone in headphones with transparency on, and music through his computer speakers. The breath feels close and the music sits in the room. This app brings that feeling to one pair of headphones, for places such as trains and offices.
 

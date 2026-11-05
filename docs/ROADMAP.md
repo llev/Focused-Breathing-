@@ -4,8 +4,9 @@ Work through these phases in order. Tick items off as they're finished. Phase 2 
 
 ## Decisions Lloyd needs to make
 
-- [ ] **Name:** the app is called Breathing Room, but the repo is `Focused-Breathing-`. Pick one and check it in app stores and the UK IPO trademark search.
-- [ ] **Repo name:** remove the trailing hyphen if the repo keeps this name.
+- [x] **Name:** Swellotic, with the line "Breathe. Listen. Focus."
+- [ ] **Name checks:** search app stores, domains and the UK IPO trademark register, and test the name with a few people.
+- [ ] **Repo name:** rename `Focused-Breathing-` to match the app.
 - [ ] **Hosting:** Cloudflare Pages, Netlify or GitHub Pages. All can serve a PWA over HTTPS. Use relative paths so the app works from any of them.
 - [ ] **Web address:** a custom domain makes it easier to move hosts later without breaking people's installed apps.
 - [ ] **Licence:** none for now. Add MIT only if the code should be open for reuse.

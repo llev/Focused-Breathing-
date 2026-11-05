@@ -1,4 +1,6 @@
-# Breathing Room
+# Swellotic
+
+**Breathe. Listen. Focus.**
 
 A breathing guide with music or ambient sound, and a separate volume for each. It's designed to run quietly in the background while you work, including on one pair of headphones on a train or in an office.
 
