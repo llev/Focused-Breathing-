@@ -10,3 +10,10 @@ dist/
 
 # Licensed music must never be committed to this public repo.
 audio/licensed/
+
+# Xcode and Swift Package Manager
+xcuserdata/
+DerivedData/
+ios/.build/
+ios/.swiftpm/
+ios/build/
