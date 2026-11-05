@@ -13,15 +13,26 @@ Work through these phases in order. Tick items off as they're finished. Phase 2 
 
 ## Phase 1: Make it installable
 
-- [ ] Add `manifest.webmanifest` with name, short name, `display: standalone`, start URL, scope, and theme and background colours.
-- [ ] Design an app icon: 192px, 512px, a maskable version and a 180px Apple touch icon.
-- [ ] Add iOS meta tags for standalone use and the status bar style.
-- [ ] Bundle the fonts locally and remove the Google Fonts links. This supports offline use and stops visitor data going to Google.
-- [ ] Add a service worker that caches the app files for offline use.
-- [ ] Update the service worker safely so people don't get stuck on an old version.
-- [ ] Deploy to the chosen host over HTTPS.
+- [x] Add `manifest.webmanifest` with name, short name, `display: standalone`, start URL, scope, and theme and background colours.
+- [x] Design an app icon: 192px, 512px, a maskable version and a 180px Apple touch icon. Lloyd to approve the design.
+- [x] Add iOS meta tags for standalone use and the status bar style.
+- [x] Bundle the fonts locally and remove the Google Fonts links. This supports offline use and stops visitor data going to Google.
+- [x] Add a service worker that caches the app files for offline use.
+- [x] Update the service worker safely so people don't get stuck on an old version.
+- [ ] Deploy to the chosen host over HTTPS. Waiting for Lloyd's hosting decision.
 
 **Done when:** the app installs on iPhone, Android and desktop Chrome, and opens and plays with no connection.
+
+Progress: desktop Chrome reports the app as installable, and it opens and plays offline when served locally. iPhone and Android still need testing once it's deployed.
+
+### Phase 1 decisions
+
+- **Icon:** a sunset-palette sun over three waves, drawn in `icons/icon.svg`. The PNG sizes were rendered from it with headless Chrome. The maskable and Apple icons are full-bleed, and the others have rounded corners.
+- **Fonts:** Figtree 400, 500 and 600 and Nunito 300, Latin subset only, from Fontsource. Both use the SIL Open Font License, and the licence files sit beside the fonts in `fonts/`. Apple devices still use their system fonts first.
+- **Status bar:** `black-translucent`, so the scene runs under the iPhone status bar. The existing safe-area padding keeps the controls clear of it.
+- **Offline:** the service worker serves every app file from a versioned cache, with no network request.
+- **Updates:** every release must bump `VERSION` in `sw.js`, or people won't get the new files. A new version downloads in the background and waits. The app offers "Tap to update" only when nothing is playing, so a session is never cut off. A new version also takes over when the app is fully closed and reopened. The app looks for a new version when it returns to the front, at most every 30 minutes.
+- **Host settings:** whichever host is chosen, `sw.js` should be served without long-term caching. Most hosts do this by default.
 
 ## Phase 2: Real device audio test
 

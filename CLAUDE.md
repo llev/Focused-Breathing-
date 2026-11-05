@@ -15,6 +15,8 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 - Sound is scheduled ahead on the Web Audio clock because browsers slow down timers in background tabs.
 - `audioSession.type` is `ambient` for "My music app" so other apps can keep playing, and `playback` otherwise.
 - All background sound is generated in code, so it needs no audio files.
+- `sw.js` caches every app file for offline use. Bump its `VERSION` whenever any app file changes, and add new files to its `FILES` list. Never make an update reload the page while sound is playing.
+- Keep every request on the app's own site. Fonts are bundled in `fonts/`.
 
 ## Rules
 

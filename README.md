@@ -4,7 +4,7 @@
 
 A breathing guide with music or ambient sound, and a separate volume for each. It's designed to run quietly in the background while you work, including on one pair of headphones on a train or in an office.
 
-> **Status:** working prototype. It isn't an installable app yet. See [docs/ROADMAP.md](docs/ROADMAP.md) for the work left before launch.
+> **Status:** working prototype. It can be installed and works offline, but it isn't hosted anywhere yet. See [docs/ROADMAP.md](docs/ROADMAP.md) for the work left before launch.
 
 ## What it does
 
@@ -26,6 +26,12 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000>. Sound starts after you press play.
 
+The service worker caches the app, so after a change you may see the old version. Reload twice, or tick "Update on reload" in Chrome DevTools under Application, then Service workers.
+
+## Releasing a change
+
+Bump `VERSION` in `sw.js` with every release. Without that, people who have already opened the app keep the old files. If you add a file, add it to the `FILES` list in `sw.js` too.
+
 ## Project files
 
 | File | Purpose |
@@ -33,6 +39,10 @@ Then open <http://localhost:8000>. Sound starts after you press play.
 | `index.html` | Page structure |
 | `styles.css` | All styling |
 | `app.js` | Audio, breathing timeline, visuals and controls |
+| `sw.js` | Service worker for offline use and updates |
+| `manifest.webmanifest` | App name, colours and icons for installing |
+| `icons/` | App icons, drawn in `icon.svg` |
+| `fonts/` | Bundled fonts and their licences |
 | `CLAUDE.md` | Project rules and context for Claude Code |
 | `docs/ROADMAP.md` | Work needed to make this a publishable web app |
 

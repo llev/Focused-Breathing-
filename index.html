@@ -6,9 +6,14 @@
 <title>Swellotic</title>
 <meta name="description" content="A breathing guide with music or ambient sound, with separate volumes for each.">
 <meta name="theme-color" content="#15111d">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Nunito:wght@300&display=swap">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Swellotic">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -22,6 +27,7 @@
     </div>
     <div class="foot">
       <p id="status" role="status">Press play to begin.</p>
+      <button id="update" class="update glass" type="button" hidden>A new version is ready. Tap to update.</button>
       <div class="bar glass">
         <button id="go" type="button" aria-label="Start">
           <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.3c0-1 1.1-1.6 2-1.1l10.4 6.7c.8.5.8 1.7 0 2.2L10 19.8c-.9.5-2-.1-2-1.1z"/></svg>

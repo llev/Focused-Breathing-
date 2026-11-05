@@ -346,7 +346,7 @@
     if (S.limit && elapsed >= S.limit * 60) stop('Session finished.');
   }
 
-  function setGo() { $('go').classList.toggle('playing', running); $('go').setAttribute('aria-label', running ? 'Stop' : 'Start'); }
+  function setGo() { $('go').classList.toggle('playing', running); $('go').setAttribute('aria-label', running ? 'Stop' : 'Start'); showUpdate(); }
   async function lockScreen() { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; } }
 
   async function start() {
@@ -556,6 +556,27 @@
       S.open = [...document.querySelectorAll('.panel[open]')].map(q => q.id.replace('panel-', '')); save();
     });
   });
+
+  /* Offline use and updates (see sw.js). A new version is only offered while nothing is playing, so a session is never cut off. */
+  let waiting = null, updating = false;
+  function showUpdate() { $('update').hidden = !waiting || running; }
+  if ('serviceWorker' in navigator) {
+    const sw = navigator.serviceWorker;
+    const ready = w => { if (w && sw.controller) { waiting = w; showUpdate(); } };
+    sw.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      ready(reg.waiting);
+      const watch = w => w && w.addEventListener('statechange', () => { if (w.state === 'installed') ready(w); });
+      watch(reg.installing);
+      reg.addEventListener('updatefound', () => watch(reg.installing));
+      /* An installed app can stay open for days, so look for a new version when it comes back to the front. */
+      let checked = Date.now();
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && Date.now() - checked > 30 * 60e3) { checked = Date.now(); reg.update().catch(() => {}); }
+      });
+    }).catch(() => {});
+    sw.addEventListener('controllerchange', () => { if (updating) location.reload(); else { waiting = null; showUpdate(); } });
+    $('update').addEventListener('click', () => { if (waiting && !running) { updating = true; waiting.postMessage('update'); } });
+  }
 
   setSheet(innerWidth >= 900);
   paint(); resetPreview(); setInterval(tick, 250); draw();

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed artwork. The circle and waves sit inside the central 80% so it survives maskable cropping. -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1238"/>
+      <stop offset="1" stop-color="#5a1f3f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="256" cy="226" r="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb27a" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffb27a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc58a"/>
+      <stop offset="1" stop-color="#ff7a59"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#ground)"/>
+  <circle cx="256" cy="226" r="190" fill="url(#glow)"/>
+  <circle cx="256" cy="226" r="104" fill="url(#sun)"/>
+  <path d="M0 300 C 64 272 128 272 192 300 S 320 328 384 300 S 480 272 512 286 V512 H0 Z" fill="#e8487e"/>
+  <path d="M0 344 C 64 318 128 318 192 344 S 320 370 384 344 S 480 318 512 330 V512 H0 Z" fill="#ff7a59"/>
+  <path d="M0 392 C 64 370 128 370 192 392 S 320 414 384 392 S 480 370 512 380 V512 H0 Z" fill="#ffb347"/>
+</svg>
