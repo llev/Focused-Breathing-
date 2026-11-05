@@ -19,6 +19,15 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 - `sw.js` caches every app file for offline use. Bump its `VERSION` whenever any app file changes, and add new files to its `FILES` list. Never make an update reload the page while sound is playing.
 - Keep every request on the app's own site. Fonts are bundled in `fonts/`.
 
+## iOS app
+
+- `ios/` holds a native SwiftUI version. Lloyd chose native over a web wrapper on 2026-11-05 for background audio. See `ios/README.md`.
+- Keep features in step with the web app unless there's a reason to differ, and record differences in `docs/ROADMAP.md`.
+- `ios/Swellotic/Core/` must stay plain Swift with no UIKit, SwiftUI or AVFoundation, so `swift test` can check it.
+- Nothing on the audio thread may allocate memory or take a lock. The render code reads settings through atomics.
+- Claude can't build iOS apps here. Push and check the iOS GitHub Actions run, which runs the tests and builds for the Simulator.
+- `sw.js` covers the web app only. iOS changes don't need a `VERSION` bump.
+
 ## Rules
 
 ### Health and focus claims

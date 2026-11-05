@@ -32,6 +32,10 @@ The service worker caches the app, so after a change you may see the old version
 
 Bump `VERSION` in `sw.js` with every release. Without that, people who have already opened the app keep the old files. If you add a file, add it to the `FILES` list in `sw.js` too.
 
+## iPhone app
+
+A native iPhone version is in [`ios/`](ios/README.md). It keeps playing when the screen locks and plays alongside Spotify or Apple Music. Open `ios/Swellotic.xcodeproj` in Xcode to run it.
+
 ## Project files
 
 | File | Purpose |
@@ -44,6 +48,7 @@ Bump `VERSION` in `sw.js` with every release. Without that, people who have alre
 | `icons/` | App icons, drawn in `icon.svg` |
 | `fonts/` | Bundled fonts and their licences |
 | `tools/make-voice.mjs` | Makes the spoken words clips with Azure AI Speech. Run once, not part of the app |
+| `ios/` | Native iPhone app in SwiftUI. See `ios/README.md` |
 | `CLAUDE.md` | Project rules and context for Claude Code |
 | `docs/ROADMAP.md` | Work needed to make this a publishable web app |
 

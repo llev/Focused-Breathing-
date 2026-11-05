@@ -58,7 +58,7 @@ Lloyd should test the installed app on a real iPhone and Android phone and recor
 - If sound continues when locked, stay a pure PWA.
 - If it doesn't, either accept "keep the screen on" and make that clear, or wrap the app with Capacitor for native background audio.
 
-Don't start a native wrapper without Lloyd's agreement.
+**Decided 2026-11-05:** Lloyd chose a native iPhone app. See "iOS app" below. The web app stays for desktop and Android.
 
 ## Phase 3: Reliable sound
 
@@ -115,6 +115,35 @@ The licence also requires reasonable safeguards against downloading or extractin
 - [ ] Add social sharing images and metadata.
 
 **Before charging money:** get the name and health wording checked properly by a professional.
+
+## iOS app
+
+A native SwiftUI app in `ios/`, started 2026-11-05. See `ios/README.md` for how to run it.
+
+- [x] Port the breathing timeline, breath sounds, generated music, scenes, settings and launch screen.
+- [x] Background audio, mixing with other apps for "My music app", and breaths audible on silent.
+- [x] Restart sound after calls and Siri, with "Tap to resume" as a fallback. Stop when headphones disconnect.
+- [x] Lock-screen play and stop controls.
+- [x] Optional tap on each breath.
+- [x] Tests for the timeline and sound engine, and a GitHub Actions build on macOS.
+- [ ] Lloyd to run it on his iPhone and fill in the iPhone column of the Phase 2 table using the iOS app.
+- [ ] Lloyd to listen to every sound against the web version, especially the room effect, which uses Apple's reverb instead of the web app's.
+- [ ] Choose the bundle identifier and set up an Apple Developer account for TestFlight.
+- [ ] App Store listing, privacy details and screenshots. Review all copy against the health claim rules.
+- [ ] Later: show what's playing in Apple Music, Apple Watch, widgets and Focus mode.
+
+### iOS decisions
+
+- **Why native:** iOS doesn't let web pages keep sound playing in the background while mixing with other apps. A native app can, and can ignore the silent switch. Lloyd also wants haptics, the App Store and room to add Watch and widgets.
+- **Native SwiftUI, not Capacitor:** Web Audio inside a wrapper can still go quiet in the background, so a wrapper might not fix the main problem. SwiftUI uses Apple's own audio engine. The cost is two codebases to keep in step.
+- **One timeline:** the audio thread owns it and starts each breath sound on the exact sample. The visuals read where it is through a lock-free snapshot. When the phone pauses sound, the breath stops and carries on from where it was, as on the web.
+- **Sound session:** "My music app" uses the playback category with mixing, so Spotify keeps playing. Other tracks use playback without mixing, so they take over from other apps. Both ignore the silent switch.
+- **Headphones:** when headphones disconnect, Swellotic stops, as Apple recommends, so it never plays out loud by surprise.
+- **Room effect:** a lowpass filter and Apple's medium hall reverb, instead of the web app's generated impulse. Lloyd to judge.
+- **Audio files** are decoded into memory and cleared when the app closes, as on the web. They're never uploaded.
+- **Minimum iOS 18,** for lock-free atomics in Swift. iOS 26 gets Liquid Glass controls. Earlier versions get a frosted material.
+- **App Store category:** Productivity, not Health & Fitness, to keep clear of medical claims.
+- **Not ported:** the service worker and update prompt, since the App Store handles updates. Spoken words stay hidden until the clips exist, as on the web.
 
 ## Phase 6: Find out if it helps
 
