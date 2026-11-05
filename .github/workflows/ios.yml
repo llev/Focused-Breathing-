@@ -1,0 +1,30 @@
+# Checks the iOS app compiles and the sound engine's tests pass. Runs only when files in ios/ change.
+name: iOS
+
+on:
+  push:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tool versions
+        run: xcodebuild -version && swift --version
+      - name: Sound engine tests
+        run: swift test
+      - name: Build the app for the Simulator
+        run: >
+          xcodebuild build
+          -project Swellotic.xcodeproj
+          -target Swellotic
+          -sdk iphonesimulator
+          -configuration Debug
+          CODE_SIGNING_ALLOWED=NO

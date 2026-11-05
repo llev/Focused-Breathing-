@@ -5,10 +5,10 @@ Work through these phases in order. Tick items off as they're finished. Phase 2 
 ## Decisions Lloyd needs to make
 
 - [x] **Name:** Swellotic, with the line "Breathe. Listen. Focus."
-- [ ] **Name checks:** search app stores, domains and the UK IPO trademark register, and test the name with a few people.
+- [x] **Name checks:** on 5 November 2026 Lloyd found no apps, trademarks or businesses called Swellotic. Testing the name with a few people is still worth doing.
 - [ ] **Repo name:** rename `Focused-Breathing-` to match the app.
-- [ ] **Hosting:** Cloudflare Pages, Netlify or GitHub Pages. All can serve a PWA over HTTPS. Use relative paths so the app works from any of them.
-- [ ] **Web address:** a custom domain makes it easier to move hosts later without breaking people's installed apps.
+- [x] **Hosting:** Cloudflare Pages, decided 5 November 2026, moving from Netlify. It doesn't charge for bandwidth, which matters with about 200MB of classical music per listener who saves the whole set. Each file must be under 25MB. Its default caching revalidates every file, which suits `sw.js`. Keep relative paths so the app works from any host.
+- [x] **Web address:** `swellotic.com`, bought 5 November 2026. Both apps download the classical pieces from it, so the host can change without breaking the iPhone app.
 - [ ] **Licence:** none for now. Add MIT only if the code should be open for reuse.
 
 ## Phase 1: Make it installable
@@ -19,7 +19,7 @@ Work through these phases in order. Tick items off as they're finished. Phase 2 
 - [x] Bundle the fonts locally and remove the Google Fonts links. This supports offline use and stops visitor data going to Google.
 - [x] Add a service worker that caches the app files for offline use.
 - [x] Update the service worker safely so people don't get stuck on an old version.
-- [ ] Deploy to the chosen host over HTTPS. Waiting for Lloyd's hosting decision.
+- [ ] Deploy to Cloudflare Pages at `swellotic.com`. Lloyd connects the GitHub repo in the Cloudflare dashboard, with no build command and the repo root as the output folder.
 
 **Done when:** the app installs on iPhone, Android and desktop Chrome, and opens and plays with no connection.
 
@@ -60,7 +60,7 @@ Lloyd's first iPhone results, 5 November 2026: generated sounds keep playing in 
 - If sound continues when locked, stay a pure PWA.
 - If it doesn't, either accept "keep the screen on" and make that clear, or wrap the app with Capacitor for native background audio.
 
-Don't start a native wrapper without Lloyd's agreement.
+**Decided 2026-11-05:** Lloyd chose a native iPhone app. See "iOS app" below. The web app stays for desktop and Android.
 
 ## Phase 3: Reliable sound
 
@@ -121,18 +121,66 @@ Still to decide for the Classical mix:
 - **Bandwidth:** about 2 hours 48 minutes of music per listener could use up a free hosting plan quickly. Cloudflare Pages doesn't charge for bandwidth.
 - **Listening:** Lloyd should check every piece for sound quality and sudden loud passages.
 
+### Analytics
+
+Decided 5 November 2026: anonymous counts in the web app, with PostHog's EU servers.
+
+- **What's sent:** `app opened` (whether it's installed, and iPhone or iPad, Android or computer), `session started` (the music, breath sound, pace, pattern, session type and its times, scene and colours) and `session ended` (finished, stopped or closed, and minutes played).
+- **Privacy:** no cookies or anything else stored on the device, and a random number per page load in place of an ID. The page sends to `/ingest` on Swellotic's own site. `functions/ingest.js`, a Cloudflare Pages Function, forwards only those three events with plain values, adds the country, and never passes on the IP address. Events can't create person profiles. That should mean no consent banner is needed under UK rules, but it isn't legal advice.
+- **No PostHog script:** the app sends its own small messages, so nothing loads from another site and the "own site" rule holds.
+- **Only on the live site:** `swellotic.com` and `.pages.dev` addresses send counts. Local testing doesn't.
+- **What it can't show:** whether people come back after a week. That needs an ID kept on the device and consent, so Phase 6 asks testers directly instead.
+- **iPhone app:** no analytics. App Store Connect gives downloads and usage from people who opt in.
+- [ ] Lloyd: in PostHog's project settings, turn off session replay and autocapture, and turn on "Discard client IP data" as a second safeguard.
+- [x] Mention the counts in the privacy notice in Phase 5.
+
 ## Phase 5: Launch checks
 
 - [ ] Add automated browser tests for start and stop, every sound and visual, the sliders, and saved settings.
 - [ ] Run a full accessibility audit, including screen readers, keyboard use and text contrast over the moving scenes.
 - [ ] Check performance on an older phone, especially Lava lamp.
-- [ ] Add a privacy notice covering local settings and what the host logs.
-- [ ] Add an About page with the health note, and credit any third-party fonts.
+- [x] Add a privacy notice covering local settings, what the host logs and the anonymous counts: `privacy.html`, linked from Settings in both apps. Lloyd to check the wording, and add his full name or business name if he wants it there.
+- [x] Add an About page with the health note, and credit any third-party fonts: `support.html`, called Help, which also credits Musopen and the performers. It doubles as the App Store support page.
+- [ ] Lloyd: set up Cloudflare Email Routing so `hello@swellotic.com`, the contact address on both pages, forwards to his own email.
 - [ ] Check licences for bundled fonts.
 - [ ] Review all copy against the health claim rules in `CLAUDE.md`.
 - [ ] Add social sharing images and metadata.
 
 **Before charging money:** get the name and health wording checked properly by a professional.
+
+## iOS app
+
+A native SwiftUI app in `ios/`, started 2026-11-05. See `ios/README.md` for how to run it.
+
+- [x] Port the breathing timeline, breath sounds, generated music, scenes, settings and launch screen.
+- [x] Background audio, mixing with other apps for "My music app", and breaths audible on silent.
+- [x] Restart sound after calls and Siri, with "Tap to resume" as a fallback. Stop when headphones disconnect.
+- [x] Lock-screen play and stop controls.
+- [x] Tests for the timeline and sound engine, and a GitHub Actions build on macOS.
+- [x] Catch up with the web app: the session drawer with Timer and Interval, "Swell" and "Rest" with the chime, and the Classical mix with its strip above the player bar and "Save all for offline". "Audio files" was removed, as on the web.
+- [ ] Lloyd to test the Classical mix on his iPhone once swellotic.com is live, including offline, skipping, repeat-one and a rest mid-piece.
+- [ ] Lloyd to run it on his iPhone and fill in the iPhone column of the Phase 2 table using the iOS app.
+- [ ] Lloyd to listen to every sound against the web version, especially the room effect, which uses Apple's reverb instead of the web app's.
+- [x] Bundle identifier `com.swellotic.app`, from `swellotic.com`. It can't change once the app is on the App Store.
+- [ ] Set up an Apple Developer account for TestFlight.
+- [ ] App Store listing, privacy details and screenshots. Review all copy against the health claim rules. Privacy policy URL: `https://swellotic.com/privacy.html`. Support URL: `https://swellotic.com/support.html`. Privacy label: Data Not Collected, since the iPhone app sends no counts.
+- [ ] Once App Store Connect gives the app its ID, add Apple's Smart App Banner to `index.html`, where a comment marks the spot, so iPhone visitors are offered the app.
+- [ ] Later: show what's playing in Apple Music, Apple Watch, widgets and Focus mode.
+
+### iOS decisions
+
+- **Why native:** iOS doesn't let web pages keep sound playing in the background while mixing with other apps. A native app can, and can ignore the silent switch. Lloyd also wants the App Store and room to add Watch and widgets. Haptics aren't needed yet.
+- **Native SwiftUI, not Capacitor:** Web Audio inside a wrapper can still go quiet in the background, so a wrapper might not fix the main problem. SwiftUI uses Apple's own audio engine. The cost is two codebases to keep in step.
+- **One timeline:** the audio thread owns it and starts each breath sound on the exact sample. The visuals read where it is through a lock-free snapshot. When the phone pauses sound, the breath stops and carries on from where it was, as on the web.
+- **Sound session:** "My music app" uses the playback category with mixing, so Spotify keeps playing. Other tracks use playback without mixing, so they take over from other apps. Both ignore the silent switch.
+- **Balancing with a music app (2026-11-05):** Lloyd found the breaths quiet next to his music app. iOS doesn't let one app set another's volume, so "My music app" now gives breaths about 9.5 dB more headroom, with the limiter catching peaks, and adds "Lower my music app", on by default. That asks iOS to duck other apps steadily for the whole session. iOS sets how much, and the duck never follows the breath, which keeps clear of rhythmic modulation. The web app can't do either.
+- **Headphones:** when headphones disconnect, Swellotic stops, as Apple recommends, so it never plays out loud by surprise.
+- **Room effect:** a lowpass filter and Apple's medium hall reverb, instead of the web app's generated impulse. Lloyd to judge.
+- **Classical mix:** pieces download from `swellotic.com` the first time they play and are kept on the phone, so the phone only ever contacts Swellotic's own site. The next piece downloads while the current one plays. "Save all for offline" downloads the whole set, and turning it off frees the space. Kept pieces are left out of iCloud backups. Pieces stream from the file a few seconds at a time, so they never sit in memory. The app reads the latest `classical.json` from the site, and starts from a copy built into the app.
+- **Rests:** the sound engine fades the breath and generated music on its own clock, so rests stay exact with the screen locked. A classical piece fades and pauses during a rest, and carries on from the same place for the next swell.
+- **Minimum iOS 18,** for lock-free atomics in Swift. iOS 26 gets Liquid Glass controls. Earlier versions get a frosted material.
+- **App Store category:** Productivity, not Health & Fitness, to keep clear of medical claims.
+- **Not ported:** the service worker and update prompt, since the App Store handles updates. Spoken words stay hidden until the clips exist, as on the web.
 
 ## Phase 6: Find out if it helps
 

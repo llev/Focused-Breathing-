@@ -1,0 +1,27 @@
+/* Shared look for Swellotic's information pages: the app's single dark style, bundled fonts, readable on phones first. */
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/figtree-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 600; font-display: swap; src: url("fonts/figtree-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 300; font-display: swap; src: url("fonts/nunito-latin-300-normal.woff2") format("woff2"); }
+:root {
+  color-scheme: dark;
+  --ink: #ffffff; --soft: rgba(255, 255, 255, .72); --hair: rgba(255, 255, 255, .14); --tint: #ffb27a; --night: #15111d;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; color: var(--ink); font: 400 17px/1.55 -apple-system, BlinkMacSystemFont, "Figtree", "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(120% 60% at 50% 0%, #2a1238 0%, var(--night) 70%) no-repeat, var(--night);
+  -webkit-font-smoothing: antialiased;
+  padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left));
+}
+main { max-width: 680px; margin: 0 auto; }
+.back { display: inline-flex; align-items: center; min-height: 44px; color: var(--tint); font-weight: 600; text-decoration: none; }
+h1 { margin: 12px 0 4px; font: 300 2.6rem/1.1 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif; letter-spacing: -.01em; }
+.updated { margin: 0 0 28px; color: var(--soft); font-size: .9375rem; }
+h2 { margin: 32px 0 8px; font-size: 1.1875rem; font-weight: 600; }
+p, li { color: var(--ink); }
+ul { padding-left: 1.2em; }
+li { margin: 6px 0; }
+a { color: var(--tint); }
+.card { margin: 20px 0; padding: 16px 18px; border: 1px solid var(--hair); border-radius: 18px; background: rgba(26, 21, 36, .62); }
+.card p { margin: 0; }
+.soft { color: var(--soft); font-size: .9375rem; }

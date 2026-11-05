@@ -21,6 +21,16 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 - `sw.js` caches every app file for offline use. Bump its `VERSION` whenever any app file changes, and add new files to its `FILES` list. Never make an update reload the page while sound is playing.
 - Keep every request on the app's own site. Fonts are bundled in `fonts/`.
 
+## iOS app
+
+- `ios/` holds a native SwiftUI version. Lloyd chose native over a web wrapper on 2026-11-05 for background audio. See `ios/README.md`.
+- Keep features in step with the web app unless there's a reason to differ, and record differences in `docs/ROADMAP.md`.
+- `ios/Swellotic/Core/` must stay plain Swift with no UIKit, SwiftUI or AVFoundation, so `swift test` can check it.
+- Nothing on the audio thread may allocate memory or take a lock. The render code reads settings through atomics.
+- Claude can't build iOS apps here. Push and check the iOS GitHub Actions run, which runs the tests and builds for the Simulator.
+- `sw.js` covers the web app only. iOS changes don't need a `VERSION` bump.
+- The iOS app downloads the Classical mix from `https://swellotic.com/`. When `classical.json` changes, copy it to `ios/Swellotic/Resources/classical.json` too, so a fresh install starts with the same list.
+
 ## Rules
 
 ### Health and focus claims
@@ -38,6 +48,7 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 ### Privacy
 
 - No accounts, analytics or trackers without Lloyd's agreement.
+- Lloyd agreed on 5 November 2026 to anonymous counts in the web app with PostHog's EU servers. Only `app opened`, `session started` and `session ended` are sent, with the choices behind a session. They go to `/ingest` on Swellotic's own site, and `functions/ingest.js` passes them on without the IP address. Nothing is stored on the device, there are no IDs that last beyond a page load, no person profiles, no recordings and no automatic click tracking. Adding an event, or anything that identifies people over time, needs Lloyd's agreement and a privacy notice update.
 - People's audio files stay on their device and are never uploaded.
 - Saved Classical mix pieces stay in the browser's own storage on the device.
 
