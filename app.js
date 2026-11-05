@@ -1,9 +1,12 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const S = { bpm: 6, ratio: 'even', cue: 'bowl', breathVol: 35, musicVol: 55, room: true, ease: false, track: 'brown', limit: 0, visual: 'lava', palette: 'sunset', open: null, words: true, countdown: false, piece: 0, repeatOne: false, saveAll: false, customMin: 40, intervals: false, swellMin: 25, restMin: 5 };
+  const S = { bpm: 6, ratio: 'even', cue: 'bowl', breathVol: 35, musicVol: 55, room: true, ease: false, track: 'brown', limit: 0, visual: 'lava', palette: 'sunset', open: null, words: true, countdown: false, piece: 0, repeatOne: false, saveAll: false, customMin: 40, mode: 'timer', swellMin: 25, restMin: 5, rounds: 4 };
   try { Object.assign(S, JSON.parse(localStorage.getItem('breathing-room') || '{}')); } catch (e) {}
   /* "Audio files" was replaced by the classical mix. */
   if (S.track === 'own') S.track = 'classical';
+  /* The interval switch became a tab. */
+  if (S.intervals) S.mode = 'interval';
+  delete S.intervals;
   const save = () => { try { localStorage.setItem('breathing-room', JSON.stringify(S)); } catch (e) {} };
 
   const RATIOS = { even: ['Even', .5], long: ['Longer out', .4], longest: ['Much longer out', 1 / 3] };
@@ -23,6 +26,11 @@
   };
   const LIMITS = { 0: 'No limit', 25: '25 min', 50: '50 min', 90: '90 min', custom: 'Custom' };
   const limitMin = () => S.limit === 'custom' ? S.customMin : +S.limit;
+  const ROUNDS = { 0: 'Until I stop', 2: '2 rounds', 4: '4 rounds', 6: '6 rounds' };
+  /* How long the whole session lasts in seconds, or 0 for no end. Interval sessions end after the last swell. */
+  const sessionLength = () => S.mode === 'interval'
+    ? (+S.rounds ? (S.rounds * S.swellMin + (S.rounds - 1) * S.restMin) * 60 : 0)
+    : limitMin() * 60;
   const VISUALS = { lava: 'Lava lamp', bloom: 'Bloom', rings: 'Rings', aurora: 'Aurora', tide: 'Tide' };
   const PALETTES = {
     sunset: { name: 'Sunset', tint: '#ffb27a', ground: ['#2a1238', '#5a1f3f'], colors: ['#ff7a59', '#ffb347', '#e8487e'] },
@@ -380,7 +388,7 @@
     const p = piece();
     $('pieceTitle').textContent = `${p.composer}: ${p.title}`;
     $('pieceBy').textContent = p.performer;
-    $('pieceCount').textContent = `${S.piece + 1} of ${pieces.length}`;
+    $('pieceCount').textContent = `Playing piece ${S.piece + 1} of ${pieces.length}.`;
     const time = player.duration ? `${clockText(player.currentTime)} / ${clockText(player.duration)}` : '';
     if ($('pieceTime').textContent !== time) $('pieceTime').textContent = time;
     $('repeatOne').setAttribute('aria-pressed', String(!!S.repeatOne));
@@ -478,15 +486,18 @@
     if (S.track === 'classical') paintPiece();
     const elapsed = ctx.currentTime - sessionStart, seg = segmentAt(elapsed);
     if (seg.kind !== segment) enterSegment(seg.kind);
-    $('clock').textContent = S.intervals ? `${seg.kind === 'rest' ? 'Rest' : 'Swell'} ${fmt(seg.left)}` : fmt(elapsed);
-    const lim = limitMin();
-    if (lim && elapsed >= lim * 60) stop('Session finished.');
+    const length = sessionLength();
+    /* The session button doubles as the clock while a session runs. */
+    const shown = S.mode === 'interval' ? `${seg.kind === 'rest' ? 'Rest' : 'Swell'} ${fmt(seg.left)}`
+      : length ? `${fmt(Math.max(0, length - elapsed))} left` : fmt(elapsed);
+    if ($('sessionSum').textContent !== shown) $('sessionSum').textContent = shown;
+    if (length && elapsed >= length) stop('Session finished.');
   }
 
   /* Swell and rest: focus time and quiet breaks take turns on the session clock. Settings changed mid-session apply straight away. */
   let segment = 'swell';
   function segmentAt(elapsed) {
-    if (!S.intervals) return { kind: 'swell', left: 0 };
+    if (S.mode !== 'interval') return { kind: 'swell', left: 0 };
     const swell = S.swellMin * 60, cycle = swell + S.restMin * 60, pos = elapsed % cycle;
     return pos < swell ? { kind: 'swell', left: swell - pos } : { kind: 'rest', left: cycle - pos };
   }
@@ -531,7 +542,7 @@
     A.master.gain.cancelScheduledValues(sessionStart);
     A.master.gain.setValueAtTime(0, sessionStart); A.master.gain.linearRampToValueAtTime(1, sessionStart + .8);
     applyLevels(); voice = startVoice(S.track); schedule(); voice.tick(ctx.currentTime, ctx.currentTime + 5);
-    setGo(); $('clock').textContent = fmt(0); $('clock').hidden = false;
+    setGo(); $('sessionSum').textContent = S.mode === 'interval' ? `Swell ${fmt(S.swellMin * 60)}` : sessionLength() ? `${fmt(sessionLength())} left` : fmt(0);
     $('status').textContent = '';
     lockScreen();
   }
@@ -542,7 +553,7 @@
     segment = 'swell'; document.body.classList.remove('resting');
     const nodes = cueNodes; cueNodes = [];
     setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch (e) {} }); if (!running) ctx.suspend(); }, 700);
-    setGo(); $('clock').hidden = true;
+    setGo(); paint();
     $('status').textContent = message || 'Press play to begin.';
     if (wake) { wake.release().catch(() => {}); wake = null; }
     resetPreview();
@@ -672,17 +683,17 @@
     $('sum-pace').textContent = `${S.bpm} a minute, ${CUES[S.cue]}`;
     $('sum-music').textContent = TRACKS[S.track][0];
     $('sum-look').textContent = `${VISUALS[S.visual]}, ${PALETTES[S.palette].name}`;
-    const lim = limitMin();
-    $('sessionSum').textContent = S.intervals ? `Swell ${S.swellMin} min · Rest ${S.restMin} min${lim ? ` · ${lim} min total` : ''}` : lim ? `${lim} min session` : 'No time limit';
+    const lim = limitMin(), interval = S.mode === 'interval';
+    if (!running) $('sessionSum').textContent = interval ? `Swell ${S.swellMin} · Rest ${S.restMin} min${+S.rounds ? ` · ${S.rounds} rounds` : ''}` : lim ? `${lim} min timer` : 'No time limit';
+    ['timer', 'interval'].forEach(m => { $('tab-' + m).setAttribute('aria-selected', String(S.mode === m)); $('tab-' + m).tabIndex = S.mode === m ? 0 : -1; $('pane-' + m).hidden = S.mode !== m; });
     $('customMin').value = S.customMin; $('customOut').textContent = `${S.customMin} min`; $('customRow').hidden = S.limit !== 'custom';
-    $('intervals').checked = S.intervals; $('intervalRows').hidden = !S.intervals;
     $('swellMin').value = S.swellMin; $('swellOut').textContent = `${S.swellMin} min`;
     $('restMin').value = S.restMin; $('restOut').textContent = `${S.restMin} min`;
-    $('intervalNote').textContent = lim ? `Swell and rest take turns until the session ends after ${lim} minutes.` : 'Swell and rest take turns until you press stop.';
+    $('intervalNote').textContent = +S.rounds ? `${S.rounds} swells with a rest between each, ${sessionLength() / 60} minutes in all.` : 'Swell and rest take turns until you press stop.';
     $('word').hidden = !S.words; $('timing').hidden = !S.countdown;
     document.documentElement.style.setProperty('--tint', PALETTES[S.palette].tint);
     [['breathVol', 0, 100], ['musicVol', 0, 100], ['bpm', 2, 12], ['customMin', 5, 240], ['swellMin', 5, 90], ['restMin', 1, 30]].forEach(([id, lo, hi]) => $(id).style.setProperty('--v', ($(id).value - lo) / (hi - lo) * 100 + '%'));
-    $('classical').hidden = S.track !== 'classical'; paintPiece(); paintSaved(); $('trackNote').textContent = TRACKS[S.track][1];
+    $('classical').hidden = $('nowPlaying').hidden = S.track !== 'classical'; paintPiece(); paintSaved(); $('trackNote').textContent = TRACKS[S.track][1];
   }
   const bind = (id, key, cast, after) => $(id).addEventListener('input', e => {
     S[key] = cast(e.target); save(); paint(); applyLevels(); if (after) after();
@@ -695,8 +706,13 @@
   bind('words', 'words', e => e.checked);
   bind('countdown', 'countdown', e => e.checked);
   bind('customMin', 'customMin', e => +e.value);
-  bind('intervals', 'intervals', e => e.checked);
-  bind('swellMin', 'swellMin', e => +e.value);
+  chips($('rounds'), 'rounds', ROUNDS, 'rounds', () => { S.rounds = +S.rounds; save(); paint(); });
+  /* Timer and Interval tabs: the open tab is the kind of session. Arrow keys move between them, as tabs usually do. */
+  const pickMode = m => { S.mode = m; save(); paint(); $('tab-' + m).focus(); };
+  ['timer', 'interval'].forEach(m => $('tab-' + m).addEventListener('click', () => pickMode(m)));
+  $('tab-timer').parentElement.addEventListener('keydown', e => {
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { e.preventDefault(); pickMode(S.mode === 'timer' ? 'interval' : 'timer'); }
+  });  bind('swellMin', 'swellMin', e => +e.value);
   bind('restMin', 'restMin', e => +e.value);
   chips($('limit'), 'limit', LIMITS, 'limit', () => { if (S.limit !== 'custom') S.limit = +S.limit; save(); paint(); });
   chips($('ratio'), 'ratio', RATIOS, 'ratio', () => { paint(); resetPreview(); });
@@ -786,6 +802,22 @@
   splash.addEventListener('animationend', e => {
     if (e.animationName === 'splash-out') { splash.remove(); document.body.classList.remove('launch'); }
   });
+
+  /* Size the app to the visible screen. See --app-height in styles.css. */
+  const fitScreen = () => {
+    let h = innerHeight;
+    /* An iPhone home-screen app that draws under the status bar is laid out one status bar too short, leaving an empty
+       band at the bottom. When the app fills the screen there, use the screen's full height instead. */
+    if (navigator.standalone) {
+      const landscape = innerWidth > innerHeight, long = Math.max(screen.width, screen.height), short = Math.min(screen.width, screen.height);
+      if (Math.abs(innerWidth - (landscape ? long : short)) < 2) h = Math.max(h, landscape ? short : long);
+    }
+    const root = document.documentElement.style;
+    root.setProperty('--app-height', h + 'px');
+    /* How far the real bottom of the screen sits below the layout's bottom, so sheets fixed to the bottom reach it. */
+    root.setProperty('--short', (h - innerHeight) + 'px');
+  };
+  fitScreen(); addEventListener('resize', fitScreen); addEventListener('orientationchange', () => setTimeout(fitScreen, 300));
 
   setSheet(innerWidth >= 900);
   paint(); resetPreview(); setInterval(tick, 250); draw();
