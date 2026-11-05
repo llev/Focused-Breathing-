@@ -1,10 +1,8 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct SettingsSheet: View {
     @ObservedObject var model: AppModel
     @Environment(\.dismiss) private var dismiss
-    @State private var choosingFiles = false
 
     var body: some View {
         let s = model.settings
@@ -15,7 +13,6 @@ struct SettingsSheet: View {
                     breathing(s, tint)
                     music(s, tint)
                     visuals(s, tint)
-                    session(s, tint)
                 }
                 .padding(14)
             }
@@ -24,9 +21,6 @@ struct SettingsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-        }
-        .fileImporter(isPresented: $choosingFiles, allowedContentTypes: [.audio], allowsMultipleSelection: true) { result in
-            if case let .success(urls) = result { model.addFiles(urls) }
         }
     }
 
@@ -70,18 +64,8 @@ struct SettingsSheet: View {
         SettingsSection(title: "Music", summary: s.track.name, isOpen: open("music")) {
             ChipPicker(title: nil, choices: MusicTrack.allCases.map { Choice(value: $0, name: $0.name) },
                        selection: $model.settings.track, tint: tint)
-            if s.track == .files {
-                VStack(alignment: .leading, spacing: 8) {
-                    Button("Add audio files") { choosingFiles = true }
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 44)
-                        .background(Color.well, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    ForEach(Array(model.fileNames.enumerated()), id: \.offset) { i, name in
-                        Text("\(i + 1). \(name)").font(.subheadline).foregroundStyle(Color.soft)
-                    }
-                }
+            if s.track == .classical {
+                ClassicalSaving(model: model, library: model.library, tint: tint)
             }
             Note(text: s.track.note)
             if s.track == .musicApp {
@@ -104,12 +88,21 @@ struct SettingsSheet: View {
             ToggleRow(title: "Countdown", isOn: $model.settings.countdown, tint: tint)
         }
     }
+}
 
-    private func session(_ s: Settings, _ tint: Color) -> some View {
-        SettingsSection(title: "Session", summary: s.limit > 0 ? "\(s.limit) minutes" : "No time limit", isOpen: open("session")) {
-            ChipPicker(title: "Stop after", choices: Settings.limits.map { Choice(value: $0, name: $0 == 0 ? "No limit" : "\($0) min") },
-                       selection: $model.settings.limit, tint: tint)
-            Note(text: "Sound keeps playing when you lock your phone or switch to another app.")
+/// The Classical mix's place in the set, and "Save all for offline".
+struct ClassicalSaving: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var library: ClassicalLibrary
+    let tint: Color
+
+    var body: some View {
+        let total = library.pieces.count
+        VStack(alignment: .leading, spacing: 10) {
+            if total > 0 { Note(text: "Playing piece \(model.settings.piece + 1) of \(total).") }
+            ToggleRow(title: "Save all for offline",
+                      detail: "\(library.savedCount) of \(total) pieces saved on this phone." + (library.savingAll ? " Saving \(min(total, library.savedCount + 1))…" : ""),
+                      isOn: $model.settings.saveAll, tint: tint)
         }
     }
 }

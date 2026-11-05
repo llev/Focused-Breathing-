@@ -7,14 +7,20 @@ import UIKit
 ///
 /// Signal path:
 /// breath → sum → limiter → output
-/// generated music + audio files → music mixer → room filter → room reverb → sum
+/// generated music + Classical mix → music mixer → room filter → room reverb → sum
 ///
 /// The app asks iOS for background audio (UIBackgroundModes in Info.plist), so sound keeps playing when the screen locks.
 /// "My music app" mixes with other apps, so Spotify or Apple Music keep playing; everything else takes over the sound.
 /// The playback category means the silent switch doesn't mute the breaths.
 @MainActor
 final class AudioController {
-    enum Event { case paused, resumed, needsTap, headphonesGone, remoteToggle, remotePlay, remotePause }
+    enum Event {
+        case paused, resumed, needsTap, headphonesGone, remoteToggle, remotePlay, remotePause
+        /// The Classical mix moved to another piece.
+        case pieceChanged(Int)
+        /// A message about the Classical mix for the status line, or nil to clear it.
+        case classical(String?)
+    }
 
     var onEvent: ((Event) -> Void)?
     private(set) var synth = SynthEngine(sampleRate: 48_000)
@@ -23,7 +29,7 @@ final class AudioController {
     private var engine = AVAudioEngine()
     private var built = false
     private var format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!
-    /// Audio files are converted to this once, and the music mixer converts them to the output rate.
+    /// Classical pieces are converted to this as they stream, and the music mixer converts them to the output rate.
     private let fileFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!
     private var breathNode: AVAudioSourceNode?
     private var musicNode: AVAudioSourceNode?
@@ -40,11 +46,13 @@ final class AudioController {
     private var rampTask: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
 
-    struct OwnTrack: Identifiable { let id = UUID(); let name: String; let buffer: AVAudioPCMBuffer }
-    private(set) var ownTracks: [OwnTrack] = []
-    private var fileRun = 0
-    private var fileIndex = 0
-    private var filesPlaying = false
+    let library = ClassicalLibrary()
+    private var stream: PieceStream?
+    private var pieceRun = 0
+    private(set) var currentPiece = 0
+    private var failures = 0
+    private var resting = false
+    private var lastPosition = 0.0
 
     init() {
         _ = Self.hostTicksToSeconds
@@ -107,7 +115,7 @@ final class AudioController {
         sum = AVAudioMixerNode()
         limiter = Self.makeLimiter()
         player = AVAudioPlayerNode()
-        filesPlaying = false
+        stream = nil
 
         let rate = outputSampleRate()
         format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2)!
@@ -152,19 +160,26 @@ final class AudioController {
         // The limiter catches any peaks.
         c.breathGain.set(volumeCurve(new.breathVolume) * 0.9 * (new.track == .musicApp ? Self.musicAppBoost : 1))
         c.musicGain.set(volumeCurve(new.musicVolume))
+        c.interval.store(new.mode == .interval, ordering: .relaxed)
+        c.swellSeconds.set(Double(new.swellMinutes * 60))
+        c.restSeconds.set(Double(new.restMinutes * 60))
+        // The chime stays audible even with the Breath slider low, as in the web app.
+        c.chimeLevel.set(0.1 + 0.25 * volumeCurve(max(new.breathVolume, 30)))
         if built { applyRoom() }
-        if rampTask == nil && filesPlaying { player.volume = fileVolume }
+        if rampTask == nil && stream != nil && !resting { player.volume = musicVolume }
+        if old.saveAll != new.saveAll { library.setSaveAll(new.saveAll) }
+        if !isPlaying { currentPiece = clampPiece(new.piece) }
         if isPlaying && old.lowerMusicApp != new.lowerMusicApp && new.track == .musicApp {
             configureSession()
             try? AVAudioSession.sharedInstance().setActive(true)
         }
         guard isPlaying, old.track != new.track else { return }
         configureSession()
-        if new.track == .files { startFiles() } else if old.track == .files { stopFiles() }
+        if new.track == .classical { playPiece(currentPiece) } else if old.track == .classical { stopClassical() }
         updateNowPlaying()
     }
 
-    private var fileVolume: Float { Float(volumeCurve(settings.musicVolume)) }
+    private var musicVolume: Float { Float(volumeCurve(settings.musicVolume)) }
 
     /// "Put music in the room" keeps the breath close and makes the music sound further away.
     private func applyRoom() {
@@ -207,14 +222,17 @@ final class AudioController {
         if !engine.isRunning { try engine.start() }
         synth.controls.begin()
         isPlaying = true
-        if settings.track == .files { startFiles() }
+        resting = false
+        failures = 0
+        if settings.track == .classical { playPiece(currentPiece) }
         updateNowPlaying()
     }
 
     func stop() {
         synth.controls.end()
         isPlaying = false
-        stopFiles()
+        resting = false
+        stopClassical()
         updateNowPlaying()
         // Let the fade finish, then release the sound so other apps can carry on.
         stopTask = Task { [weak self] in
@@ -237,7 +255,8 @@ final class AudioController {
             updateLatency()
             if !engine.isRunning { try engine.start() }
             synth.controls.soundBack()
-            if settings.track == .files { startFiles() }
+            // The phone stopped the engine, so carry on the piece from where it was.
+            if settings.track == .classical { playPiece(currentPiece, from: lastPosition) }
             onEvent?(.resumed)
             return true
         } catch {
@@ -253,79 +272,153 @@ final class AudioController {
         return BreathFrame(phase: s.phase, time: t, level: s.phase.level(at: t))
     }
 
-    // MARK: Audio files
+    // MARK: Classical mix
 
-    /// Reads a file into memory in a standard format. It stays on the device and is never uploaded.
-    nonisolated static func decode(_ url: URL, to format: AVAudioFormat) throws -> AVAudioPCMBuffer {
-        let access = url.startAccessingSecurityScopedResource()
-        defer { if access { url.stopAccessingSecurityScopedResource() } }
-        let file = try AVAudioFile(forReading: url)
-        let inFormat = file.processingFormat
-        guard file.length > 0, let input = AVAudioPCMBuffer(pcmFormat: inFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        try file.read(into: input)
-        guard let converter = AVAudioConverter(from: inFormat, to: format) else { throw CocoaError(.fileReadCorruptFile) }
-        if inFormat.channelCount == 1 { converter.channelMap = [0, 0] }
-        let capacity = AVAudioFrameCount(Double(input.frameLength) * format.sampleRate / inFormat.sampleRate) + 4096
-        guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { throw CocoaError(.fileReadCorruptFile) }
-        var fed = false
-        var error: NSError?
-        let status = converter.convert(to: output, error: &error) { _, outStatus in
-            if fed {
-                outStatus.pointee = .endOfStream
-                return nil
+    private func clampPiece(_ i: Int) -> Int {
+        let n = library.pieces.count
+        return n > 0 ? ((i % n) + n) % n : 0
+    }
+
+    /// Plays a piece from `seconds` in, downloading it first if it isn't on the phone yet.
+    private func playPiece(_ requested: Int, from seconds: Double = 0) {
+        guard isPlaying, settings.track == .classical, !library.pieces.isEmpty else { return }
+        let index = clampPiece(requested)
+        pieceRun += 1
+        let run = pieceRun
+        currentPiece = index
+        lastPosition = seconds
+        onEvent?(.pieceChanged(index))
+        if !library.isSaved(index) { onEvent?(.classical("Loading the music…")) }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let url = try await self.library.fetch(index)
+                guard run == self.pieceRun, self.isPlaying, self.settings.track == .classical else { return }
+                try self.startStream(url: url, index: index, from: seconds, run: run)
+                self.failures = 0
+                self.onEvent?(.classical(nil))
+                self.prefetch(after: index)
+            } catch {
+                guard run == self.pieceRun, self.isPlaying else { return }
+                self.failures += 1
+                let offline = error is URLError
+                if self.failures >= self.library.pieces.count || (offline && self.library.savedCount == 0) {
+                    self.onEvent?(.classical(offline
+                        ? "Connect to the internet to play the classical mix, or turn on Save all for offline next time."
+                        : "The classical music couldn't load. Try another sound."))
+                    return
+                }
+                // Offline or a broken file: move on to the next piece that can play.
+                self.playPiece(self.library.playable(from: index + 1, step: 1, online: !offline))
             }
-            fed = true
-            outStatus.pointee = .haveData
-            return input
         }
-        if let error { throw error }
-        if status == .error || output.frameLength == 0 { throw CocoaError(.fileReadCorruptFile) }
-        return output
     }
 
-    func addFile(_ url: URL) async throws -> String {
-        let format = fileFormat
-        let box = try await Task.detached(priority: .userInitiated) { DecodedAudio(buffer: try AudioController.decode(url, to: format)) }.value
-        let buffer = box.buffer
-        let name = url.deletingPathExtension().lastPathComponent
-        ownTracks.append(OwnTrack(name: name, buffer: buffer))
-        if isPlaying && settings.track == .files { startFiles() }
-        return name
+    /// Downloads the next piece while this one plays, so the change is seamless.
+    private func prefetch(after index: Int) {
+        let next = clampPiece(index + 1)
+        guard !library.isSaved(next) else { return }
+        Task { [weak self] in _ = try? await self?.library.fetch(next) }
     }
 
-    private func startFiles() {
-        guard built, !ownTracks.isEmpty else { return }
-        fileRun += 1
-        fileIndex = 0
+    private func startStream(url: URL, index: Int, from seconds: Double, run: Int) throws {
+        let s = try PieceStream(url: url, from: seconds, to: fileFormat)
+        stream = s
+        rampTask?.cancel()
+        rampTask = nil
         player.stop()
         player.volume = 0
-        // Keep two files queued so they follow on without a gap.
-        scheduleNextFile(run: fileRun)
-        scheduleNextFile(run: fileRun)
+        // Keep about 12 seconds queued, read from the file a little at a time, so long pieces never sit in memory.
+        for _ in 0..<3 { scheduleChunk(s, run: run) }
         player.play()
-        filesPlaying = true
-        rampPlayer(to: fileVolume, seconds: 1.2)
+        if resting {
+            player.pause()
+        } else {
+            rampPlayer(to: musicVolume, seconds: seconds > 0 ? 0.8 : 1.2)
+        }
+        updateNowPlaying()
     }
 
-    private func scheduleNextFile(run: Int) {
-        guard run == fileRun, !ownTracks.isEmpty else { return }
-        let track = ownTracks[fileIndex % ownTracks.count]
-        fileIndex += 1
-        player.scheduleBuffer(track.buffer, completionCallbackType: .dataConsumed) { [weak self] _ in
-            Task { @MainActor in self?.scheduleNextFile(run: run) }
+    private func scheduleChunk(_ s: PieceStream, run: Int) {
+        guard run == pieceRun, !s.markedEnd else { return }
+        let buffer: AVAudioPCMBuffer
+        if let chunk = s.nextChunk(seconds: 4, format: fileFormat) {
+            buffer = chunk
+        } else {
+            // The file ended on a chunk boundary: queue a moment of silence to learn when playback finishes.
+            guard let silence = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: 1) else { return }
+            silence.frameLength = 1
+            for c in 0..<Int(fileFormat.channelCount) { silence.floatChannelData?[c][0] = 0 }
+            buffer = silence
+        }
+        let last = s.ended
+        if last { s.markedEnd = true }
+        player.scheduleBuffer(buffer, completionCallbackType: last ? .dataPlayedBack : .dataConsumed) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, run == self.pieceRun else { return }
+                if last { self.pieceEnded() } else { self.scheduleChunk(s, run: run) }
+            }
         }
     }
 
-    private func stopFiles() {
-        guard filesPlaying else { return }
-        fileRun += 1
-        filesPlaying = false
-        let run = fileRun
+    /// The set repeats by default, and "Repeat this piece" loops one.
+    private func pieceEnded() {
+        playPiece(settings.repeatOne ? currentPiece : currentPiece + 1)
+    }
+
+    /// Previous or next piece. Returns the new piece so the screen can show it.
+    @discardableResult
+    func skip(_ step: Int) -> Int {
+        let next = clampPiece(currentPiece + step)
+        failures = 0
+        guard isPlaying, settings.track == .classical, stream != nil else {
+            currentPiece = next
+            return next
+        }
+        // A short fade, so skipping never cuts off mid-note.
+        pieceRun += 1
+        currentPiece = next
+        rampPlayer(to: 0, seconds: 0.2) { [weak self] in self?.playPiece(next) }
+        return next
+    }
+
+    private func stopClassical() {
+        pieceRun += 1
+        guard stream != nil else { return }
+        stream = nil
+        let run = pieceRun
         rampPlayer(to: 0, seconds: 0.3) { [weak self] in
-            guard let self, self.fileRun == run else { return }
+            guard let self, self.pieceRun == run else { return }
             self.player.stop()
+        }
+    }
+
+    /// How far into the current piece, and how long it is.
+    func piecePosition() -> (now: Double, length: Double)? {
+        guard let s = stream else { return nil }
+        if let node = player.lastRenderTime, let t = player.playerTime(forNodeTime: node), t.sampleRate > 0 {
+            lastPosition = min(s.duration, s.startOffset + Double(t.sampleTime) / t.sampleRate)
+        }
+        return (lastPosition, s.duration)
+    }
+
+    /// During a rest the piece fades out shortly after the chime and pauses. It carries on for the next swell.
+    func setResting(_ isResting: Bool) {
+        guard resting != isResting else { return }
+        resting = isResting
+        guard stream != nil else { return }
+        if isResting {
+            Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(600))
+                guard let self, self.resting else { return }
+                self.rampPlayer(to: 0, seconds: 2.9) { [weak self] in
+                    guard let self, self.resting else { return }
+                    self.player.pause()
+                }
+            }
+        } else {
+            player.play()
+            rampPlayer(to: musicVolume, seconds: 1.5)
         }
     }
 
@@ -429,13 +522,23 @@ final class AudioController {
     /// Lock screen details. iOS only shows them when Swellotic isn't mixing with another app.
     private func updateNowPlaying() {
         var info: [String: Any] = [
-            MPMediaItemPropertyTitle: settings.track == .musicApp ? "Breath" : settings.track.name,
-            MPMediaItemPropertyArtist: "Swellotic",
+            MPMediaItemPropertyTitle: nowPlayingTitle,
+            MPMediaItemPropertyArtist: nowPlayingArtist,
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
         ]
         if let artwork = Self.makeArtwork() { info[MPMediaItemPropertyArtwork] = artwork }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private var nowPlayingTitle: String {
+        if settings.track == .classical, library.pieces.indices.contains(currentPiece) { return library.pieces[currentPiece].heading }
+        return settings.track == .musicApp ? "Breath" : settings.track.name
+    }
+
+    private var nowPlayingArtist: String {
+        if settings.track == .classical, library.pieces.indices.contains(currentPiece) { return library.pieces[currentPiece].performer }
+        return "Swellotic"
     }
 
     /// iOS asks for the artwork from a background thread, so it's made outside the main actor.
@@ -445,8 +548,50 @@ final class AudioController {
     }
 }
 
-/// A decoded file, handed from the background task that read it. It isn't changed after decoding.
-private final class DecodedAudio: @unchecked Sendable {
-    let buffer: AVAudioPCMBuffer
-    init(buffer: AVAudioPCMBuffer) { self.buffer = buffer }
+/// Reads one classical piece from the phone a few seconds at a time, converting it for the player.
+private final class PieceStream {
+    let file: AVAudioFile
+    let converter: AVAudioConverter
+    let duration: Double
+    let startOffset: Double
+    private(set) var ended = false
+    var markedEnd = false
+
+    init(url: URL, from seconds: Double, to format: AVAudioFormat) throws {
+        file = try AVAudioFile(forReading: url)
+        let rate = file.processingFormat.sampleRate
+        duration = Double(file.length) / rate
+        let start = AVAudioFramePosition(min(max(0, seconds), max(0, duration - 1)) * rate)
+        file.framePosition = start
+        startOffset = Double(start) / rate
+        guard let c = AVAudioConverter(from: file.processingFormat, to: format) else { throw CocoaError(.fileReadCorruptFile) }
+        if file.processingFormat.channelCount == 1 { c.channelMap = [0, 0] }
+        converter = c
+    }
+
+    /// About `seconds` of sound, or nil once the piece has ended.
+    func nextChunk(seconds: Double, format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        guard !ended, let out = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(seconds * format.sampleRate)) else { return nil }
+        let source = file
+        let inFormat = source.processingFormat
+        var error: NSError?
+        let status = converter.convert(to: out, error: &error) { packets, inStatus in
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: inFormat, frameCapacity: packets) else {
+                inStatus.pointee = .endOfStream
+                return nil
+            }
+            do { try source.read(into: buffer, frameCount: packets) } catch {
+                inStatus.pointee = .endOfStream
+                return nil
+            }
+            if buffer.frameLength == 0 {
+                inStatus.pointee = .endOfStream
+                return nil
+            }
+            inStatus.pointee = .haveData
+            return buffer
+        }
+        if status == .endOfStream || status == .error { ended = true }
+        return out.frameLength > 0 ? out : nil
+    }
 }

@@ -23,10 +23,11 @@ enum BreathPattern: Int, CaseIterable, Codable, Sendable {
 
 /// The background sound. Raw values are shared with the audio thread, so don't reorder them.
 enum MusicTrack: Int, CaseIterable, Codable, Sendable {
-    case brown, pink, rain, beach, stream, wind, fire, ambient, keys, files, musicApp
+    // Classical replaced "Audio files" and keeps its number, so saved settings carry over.
+    case brown, pink, rain, beach, stream, wind, fire, ambient, keys, classical, musicApp
 
-    /// Generated tracks are made in code. Audio files and "My music app" are not.
-    var isGenerated: Bool { self != .files && self != .musicApp }
+    /// Generated tracks are made in code. The Classical mix and "My music app" are not.
+    var isGenerated: Bool { self != .classical && self != .musicApp }
 }
 
 /// Slider positions feel more even to the ear when squared, as in the web app.

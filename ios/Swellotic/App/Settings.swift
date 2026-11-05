@@ -45,6 +45,12 @@ enum Palette: Int, CaseIterable, Codable {
 }
 
 /// Everything the person has chosen. Saved on the device only.
+enum SessionMode: Int, CaseIterable, Codable {
+    case timer, interval
+
+    var name: String { self == .timer ? "Timer" : "Interval" }
+}
+
 struct Settings: Codable, Equatable {
     var bpm = 6.0
     var pattern = BreathPattern.even
@@ -55,14 +61,37 @@ struct Settings: Codable, Equatable {
     var lowerMusicApp = true
     var ease = false
     var track = MusicTrack.brown
+    /// Timer: minutes to stop after, 0 for no limit, or `Settings.custom` to use `customMinutes`.
     var limit = 0
+    var customMinutes = 40
+    var mode = SessionMode.timer
+    var swellMinutes = 25
+    var restMinutes = 5
+    /// Interval rounds: 0 means until stopped.
+    var rounds = 4
+    /// Classical mix: which piece is playing, whether to repeat it, and whether to keep the whole set on the phone.
+    var piece = 0
+    var repeatOne = false
+    var saveAll = false
     var scene = SceneStyle.lava
     var palette = Palette.sunset
     var showWords = true
     var countdown = false
     var openSections: Set<String> = ["breathing"]
 
-    static let limits = [0, 25, 50, 90]
+    static let custom = -1
+    static let limits = [0, 25, 50, 90, custom]
+    static let roundChoices = [0, 2, 4, 6]
+
+    /// How many minutes a timer stops after, or 0 for no limit.
+    var limitMinutes: Int { limit == Self.custom ? customMinutes : limit }
+
+    var plan: IntervalPlan { IntervalPlan(swell: Double(swellMinutes * 60), rest: Double(restMinutes * 60)) }
+
+    /// How long the whole session lasts in seconds, or 0 for no end. Interval sessions end after the last swell.
+    var sessionLength: Double {
+        mode == .interval ? plan.length(rounds: rounds) : Double(limitMinutes * 60)
+    }
     private static let key = "swellotic-settings"
 
     init() {}
@@ -82,6 +111,14 @@ struct Settings: Codable, Equatable {
         ease = v(.ease, d.ease)
         track = v(.track, d.track)
         limit = v(.limit, d.limit)
+        customMinutes = min(240, max(5, v(.customMinutes, d.customMinutes)))
+        mode = v(.mode, d.mode)
+        swellMinutes = min(90, max(5, v(.swellMinutes, d.swellMinutes)))
+        restMinutes = min(30, max(1, v(.restMinutes, d.restMinutes)))
+        rounds = v(.rounds, d.rounds)
+        piece = max(0, v(.piece, d.piece))
+        repeatOne = v(.repeatOne, d.repeatOne)
+        saveAll = v(.saveAll, d.saveAll)
         scene = v(.scene, d.scene)
         palette = v(.palette, d.palette)
         showWords = v(.showWords, d.showWords)
@@ -139,7 +176,7 @@ extension MusicTrack {
         case .fire: return "Fireplace"
         case .ambient: return "Ambient"
         case .keys: return "Soft keys"
-        case .files: return "Audio files"
+        case .classical: return "Classical mix"
         case .musicApp: return "My music app"
         }
     }
@@ -149,7 +186,7 @@ extension MusicTrack {
         case .beach: return "Slow, soft waves generated on your phone, so it works offline."
         case .ambient: return "Slow chords generated on your phone, so it works offline."
         case .keys: return "A simple generated sketch, not a finished recording."
-        case .files: return "Add audio files from this phone. They stay on your phone, play on a loop and are cleared when Swellotic closes."
+        case .classical: return "Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use."
         case .musicApp: return "Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. The side buttons change both, so use the Breath slider to balance them."
         default: return "Generated on your phone, so it works offline."
         }

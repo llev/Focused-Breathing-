@@ -143,6 +143,8 @@ A native SwiftUI app in `ios/`, started 2026-11-05. See `ios/README.md` for how 
 - [x] Restart sound after calls and Siri, with "Tap to resume" as a fallback. Stop when headphones disconnect.
 - [x] Lock-screen play and stop controls.
 - [x] Tests for the timeline and sound engine, and a GitHub Actions build on macOS.
+- [x] Catch up with the web app: the session drawer with Timer and Interval, "Swell" and "Rest" with the chime, and the Classical mix with its strip above the player bar and "Save all for offline". "Audio files" was removed, as on the web.
+- [ ] Lloyd to test the Classical mix on his iPhone once swellotic.com is live, including offline, skipping, repeat-one and a rest mid-piece.
 - [ ] Lloyd to run it on his iPhone and fill in the iPhone column of the Phase 2 table using the iOS app.
 - [ ] Lloyd to listen to every sound against the web version, especially the room effect, which uses Apple's reverb instead of the web app's.
 - [x] Bundle identifier `com.swellotic.app`, from `swellotic.com`. It can't change once the app is on the App Store.
@@ -159,7 +161,8 @@ A native SwiftUI app in `ios/`, started 2026-11-05. See `ios/README.md` for how 
 - **Balancing with a music app (2026-11-05):** Lloyd found the breaths quiet next to his music app. iOS doesn't let one app set another's volume, so "My music app" now gives breaths about 9.5 dB more headroom, with the limiter catching peaks, and adds "Lower my music app", on by default. That asks iOS to duck other apps steadily for the whole session. iOS sets how much, and the duck never follows the breath, which keeps clear of rhythmic modulation. The web app can't do either.
 - **Headphones:** when headphones disconnect, Swellotic stops, as Apple recommends, so it never plays out loud by surprise.
 - **Room effect:** a lowpass filter and Apple's medium hall reverb, instead of the web app's generated impulse. Lloyd to judge.
-- **Audio files** are decoded into memory and cleared when the app closes, as on the web. They're never uploaded.
+- **Classical mix:** pieces download from `swellotic.com` the first time they play and are kept on the phone, so the phone only ever contacts Swellotic's own site. The next piece downloads while the current one plays. "Save all for offline" downloads the whole set, and turning it off frees the space. Kept pieces are left out of iCloud backups. Pieces stream from the file a few seconds at a time, so they never sit in memory. The app reads the latest `classical.json` from the site, and starts from a copy built into the app.
+- **Rests:** the sound engine fades the breath and generated music on its own clock, so rests stay exact with the screen locked. A classical piece fades and pauses during a rest, and carries on from the same place for the next swell.
 - **Minimum iOS 18,** for lock-free atomics in Swift. iOS 26 gets Liquid Glass controls. Earlier versions get a frosted material.
 - **App Store category:** Productivity, not Health & Fitness, to keep clear of medical claims.
 - **Not ported:** the service worker and update prompt, since the App Store handles updates. Spoken words stay hidden until the clips exist, as on the web.

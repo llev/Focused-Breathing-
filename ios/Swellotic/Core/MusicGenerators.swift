@@ -20,7 +20,7 @@ func makeGenerator(_ track: MusicTrack, sampleRate: Double) -> MusicGenerator? {
     case .fire: return FireSound(sampleRate: sampleRate)
     case .ambient: return AmbientSound(sampleRate: sampleRate)
     case .keys: return SoftKeysSound(sampleRate: sampleRate)
-    case .files, .musicApp: return nil
+    case .classical, .musicApp: return nil
     }
 }
 

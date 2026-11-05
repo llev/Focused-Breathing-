@@ -6,30 +6,8 @@ final class SynthTests: XCTestCase {
     let rate = 48_000.0
     let block = 512
 
-    /// Renders `seconds` of breath and music sound and returns the left channels.
     func render(_ engine: SynthEngine, seconds: Double) -> (breath: [Float], music: [Float]) {
-        let total = Int(seconds * rate)
-        var breath = [Float](), music = [Float]()
-        breath.reserveCapacity(total); music.reserveCapacity(total)
-        var l = [Float](repeating: 0, count: block), r = [Float](repeating: 0, count: block)
-        var done = 0
-        while done < total {
-            let n = min(block, total - done)
-            l.withUnsafeMutableBufferPointer { lp in
-                r.withUnsafeMutableBufferPointer { rp in
-                    engine.renderBreath(frameCount: n, left: lp.baseAddress!, right: rp.baseAddress!, hostSeconds: Double(done) / rate)
-                }
-            }
-            breath.append(contentsOf: l[0..<n])
-            l.withUnsafeMutableBufferPointer { lp in
-                r.withUnsafeMutableBufferPointer { rp in
-                    engine.renderMusic(frameCount: n, left: lp.baseAddress!, right: rp.baseAddress!)
-                }
-            }
-            music.append(contentsOf: l[0..<n])
-            done += n
-        }
-        return (breath, music)
+        renderSynth(engine, seconds: seconds, rate: rate, block: block)
     }
 
     func makeEngine(sound: BreathSound = .bowl, track: MusicTrack = .brown, bpm: Double = 6) -> SynthEngine {
@@ -155,4 +133,30 @@ final class SynthTests: XCTestCase {
         XCTAssertEqual(snapAfter.renderedSeconds, 2, accuracy: 0.02)
         XCTAssertEqual(snapAfter.phase, snapBefore.phase)
     }
+}
+
+/// Renders `seconds` of breath and music sound and returns the left channels.
+func renderSynth(_ engine: SynthEngine, seconds: Double, rate: Double, block: Int) -> (breath: [Float], music: [Float]) {
+    let total = Int(seconds * rate)
+    var breath = [Float](), music = [Float]()
+    breath.reserveCapacity(total); music.reserveCapacity(total)
+    var l = [Float](repeating: 0, count: block), r = [Float](repeating: 0, count: block)
+    var done = 0
+    while done < total {
+        let n = min(block, total - done)
+        l.withUnsafeMutableBufferPointer { lp in
+            r.withUnsafeMutableBufferPointer { rp in
+                engine.renderBreath(frameCount: n, left: lp.baseAddress!, right: rp.baseAddress!, hostSeconds: Double(done) / rate)
+            }
+        }
+        breath.append(contentsOf: l[0..<n])
+        l.withUnsafeMutableBufferPointer { lp in
+            r.withUnsafeMutableBufferPointer { rp in
+                engine.renderMusic(frameCount: n, left: lp.baseAddress!, right: rp.baseAddress!)
+            }
+        }
+        music.append(contentsOf: l[0..<n])
+        done += n
+    }
+    return (breath, music)
 }

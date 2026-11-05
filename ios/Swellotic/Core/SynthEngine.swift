@@ -18,6 +18,12 @@ final class SynthControls: Sendable {
     let track = Atomic<Int>(MusicTrack.brown.rawValue)
     let breathGain = AtomicDouble(0.11)
     let musicGain = AtomicDouble(0.3)
+    /// Interval sessions: whether they're on, and the swell and rest lengths in seconds.
+    let interval = Atomic<Bool>(false)
+    let swellSeconds = AtomicDouble(25 * 60)
+    let restSeconds = AtomicDouble(5 * 60)
+    /// How loud the swell and rest chime is.
+    let chimeLevel = AtomicDouble(0.13)
     /// Session number times two, plus one while playing. One value, so the audio thread never sees half a change.
     let state = Atomic<Int>(0)
     /// Goes up by one each time sound comes back after the phone paused it.
@@ -37,6 +43,13 @@ final class SynthControls: Sendable {
     }
 
     func soundBack() { _ = resumes.add(1, ordering: .releasing) }
+
+    /// Whether the session is resting at `elapsed` seconds. Read by both halves of the synth, so they agree.
+    func resting(at elapsed: Double) -> Bool {
+        guard interval.load(ordering: .relaxed) else { return false }
+        return IntervalPlan(swell: swellSeconds.value, rest: restSeconds.value).segment(at: elapsed).resting
+    }
+
 }
 
 /// Where the timeline was at the start of the last audio block.
@@ -107,6 +120,9 @@ final class SynthEngine: @unchecked Sendable {
     private var lastCue: BreathSound = .bowl
     private var level: Smoother
     private var fade = Fade()
+    private var rest = RestFader()
+    private var resting = false
+    private var chime = Chime()
     private var music: MusicSynth
 
     /// The first breath begins this long after pressing play.
@@ -166,6 +182,8 @@ final class SynthEngine: @unchecked Sendable {
         for i in voices.indices { voices[i].active = false }
         lastCue = BreathSound(rawValue: controls.cue.load(ordering: .relaxed)) ?? .bowl
         level.value = controls.breathGain.value
+        rest.reset()
+        resting = false
         fade.jump(to: 0)
         fade.ramp(to: 1, seconds: 0.8, sampleRate: sampleRate)
     }
@@ -203,6 +221,16 @@ final class SynthEngine: @unchecked Sendable {
         }
         let gain = controls.breathGain.value
         let blockStart = frame
+        // Swell and rest: a chime marks each change, then the breath fades out for a rest and back in for a swell.
+        if live {
+            let nowResting = controls.resting(at: Double(blockStart) / sampleRate)
+            if nowResting != resting {
+                resting = nowResting
+                rest.set(resting: nowResting, at: blockStart, sampleRate: sampleRate)
+                chime.ring(note: nowResting ? 62 : 69, at: blockStart + Int64(0.05 * sampleRate),
+                           level: controls.chimeLevel.value, sampleRate: sampleRate)
+            }
+        }
         for i in 0..<n {
             let now = blockStart + Int64(i)
             if live && now >= nextStartFrame {
@@ -217,7 +245,8 @@ final class SynthEngine: @unchecked Sendable {
             }
             var s = 0.0
             for v in voices.indices where voices[v].active { s += voices[v].next(frame: now, sampleRate: sampleRate) }
-            s *= level.next(toward: gain) * fade.next()
+            s *= level.next(toward: gain) * fade.next() * rest.next(frame: now)
+            s += chime.next(frame: now, sampleRate: sampleRate)
             let out = Float(s)
             left[i] = out
             right?[i] = out
@@ -245,6 +274,9 @@ final class MusicSynth {
     private var previousFade = Fade()
     private var level: Smoother
     private var master = Fade()
+    private var rest = RestFader()
+    private var resting = false
+    private var frame: Int64 = 0
     private var live = false
     private var seenSession = 0
     private var seenResume = 0
@@ -257,6 +289,7 @@ final class MusicSynth {
     }
 
     func retune(sampleRate newRate: Double) {
+        frame = Int64((Double(frame) * newRate / sampleRate).rounded())
         sampleRate = newRate
         generators = MusicTrack.allCases.map { makeGenerator($0, sampleRate: newRate) }
         current = currentTrack >= 0 && currentTrack < generators.count ? generators[currentTrack] : nil
@@ -278,6 +311,9 @@ final class MusicSynth {
             level.value = controls.musicGain.value
             currentTrack = -1 // Start the track afresh, fading in.
             previous = nil
+            frame = 0
+            rest.reset()
+            resting = false
         } else if !playing && live {
             live = false
             master.glide(to: 0, timeConstant: 0.15, sampleRate: sampleRate)
@@ -312,6 +348,13 @@ final class MusicSynth {
         let track = controls.track.load(ordering: .relaxed)
         if track != currentTrack { switchTrack(to: track) }
         let gain = controls.musicGain.value
+        if live {
+            let nowResting = controls.resting(at: Double(frame) / sampleRate)
+            if nowResting != resting {
+                resting = nowResting
+                rest.set(resting: nowResting, at: frame, sampleRate: sampleRate)
+            }
+        }
         for i in 0..<n {
             var l = 0.0, r = 0.0
             if let c = current {
@@ -322,10 +365,11 @@ final class MusicSynth {
                 let s = p.next(), f = previousFade.next()
                 l += s.0 * f; r += s.1 * f
             }
-            let g = level.next(toward: gain) * master.next()
+            let g = level.next(toward: gain) * master.next() * rest.next(frame: frame + Int64(i))
             left[i] = Float(l * g)
             right?[i] = Float(r * g)
         }
+        frame += Int64(n)
         if previous != nil && previousFade.isSilent { previous = nil }
     }
 }

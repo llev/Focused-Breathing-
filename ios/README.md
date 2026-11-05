@@ -6,7 +6,9 @@ A native SwiftUI version of Swellotic. It has the same breathing timeline, breat
 - **Plays alongside Spotify or Apple Music.** With "My music app", Swellotic mixes with them instead of stopping them, and can turn them down while it plays.
 - **Ignores the silent switch**, so the breaths stay audible.
 - **Lock-screen controls** for play and stop when Swellotic is playing its own music.
-- **Remembers settings** on the phone. Nothing leaves the device.
+- **Classical mix:** pieces download from swellotic.com the first time they play and stay on the phone. "Save all for offline" keeps the whole set.
+- **Sessions:** Timer, or Interval with swells and rests, as in the web app. Rests stay in time with the screen locked.
+- **Remembers settings** on the phone. Nothing about you leaves the device.
 
 ## Run it on your iPhone
 
@@ -28,6 +30,8 @@ Claude can't hear the app, so these need a person and a real iPhone. Record resu
 - Take a call or use Siri, then return. Does the sound come back, or does "Tap to resume" appear?
 - Unplug or disconnect headphones. Swellotic should stop rather than play out loud.
 - Flip the silent switch. The breaths should still play.
+- Classical mix, once swellotic.com is live: first play, skipping, repeat-one, a rest mid-piece, and playing with no connection after "Save all for offline".
+- An Interval session with the screen locked: do the chimes and rests arrive on time?
 - How every breath sound and background sound compares with the web version.
 
 ## How it's built

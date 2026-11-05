@@ -9,8 +9,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var running = false
     @Published private(set) var status = "Press play to begin."
     @Published private(set) var showResume = false
-    @Published private(set) var elapsed = "00:00"
-    @Published private(set) var fileNames: [String] = []
+    /// The session button's text: the session's settings when stopped, and its clock while playing.
+    @Published private(set) var sessionText = ""
+    @Published private(set) var resting = false
+    /// The Classical mix piece's time, such as "1:23 / 9:05".
+    @Published private(set) var pieceTime = ""
 
     let audio = AudioController()
     /// While nothing plays, the visuals follow a preview of the same timeline on the wall clock.
@@ -24,6 +27,23 @@ final class AppModel: ObservableObject {
         preview = BreathTimeline(startingAt: AudioController.hostNow(), pacing: Self.previewPacing(saved))
         audio.apply(saved)
         audio.onEvent = { [weak self] event in self?.handle(event) }
+        audio.library.resumeSaving(saved.saveAll)
+        sessionText = Self.summary(saved)
+    }
+
+    var library: ClassicalLibrary { audio.library }
+
+    /// What the session button says while nothing plays.
+    private static func summary(_ s: Settings) -> String {
+        if s.mode == .interval {
+            return "Swell \(s.swellMinutes) · Rest \(s.restMinutes) min" + (s.rounds > 0 ? " · \(s.rounds) rounds" : "")
+        }
+        return s.limitMinutes > 0 ? "\(s.limitMinutes) min timer" : "No time limit"
+    }
+
+    private static func clock(_ seconds: Double) -> String {
+        let s = Int(max(0, seconds))
+        return String(format: "%02d:%02d", s / 60, s % 60)
     }
 
     var tint: Color { settings.palette.tint }
@@ -37,9 +57,8 @@ final class AppModel: ObservableObject {
         settings.save()
         audio.apply(settings)
         if !running && (old.bpm != settings.bpm || old.pattern != settings.pattern) { resetPreview() }
-        if running && old.track != settings.track {
-            status = settings.track == .files && fileNames.isEmpty ? "Add audio files to hear your music." : ""
-        }
+        if running && old.track != settings.track { status = "" }
+        if !running { sessionText = Self.summary(settings) }
     }
 
     private func resetPreview() {
@@ -72,8 +91,10 @@ final class AppModel: ObservableObject {
         }
         running = true
         showResume = false
-        elapsed = "00:00"
-        status = settings.track == .files && fileNames.isEmpty ? "Add audio files to hear your music." : ""
+        resting = false
+        status = ""
+        sessionText = settings.mode == .interval ? "Swell \(Self.clock(Double(settings.swellMinutes * 60)))"
+            : settings.sessionLength > 0 ? "\(Self.clock(settings.sessionLength)) left" : Self.clock(0)
         startTicker()
     }
 
@@ -82,6 +103,9 @@ final class AppModel: ObservableObject {
         audio.stop()
         running = false
         showResume = false
+        resting = false
+        pieceTime = ""
+        sessionText = Self.summary(settings)
         ticker?.cancel()
         resumeCheck?.cancel()
         status = message ?? "Press play to begin."
@@ -97,7 +121,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// The clock and the time limit. Runs while playing, including in the background.
+    /// The session clock, swell and rest, and the time limit. Runs while playing, including in the background.
     private func startTicker() {
         ticker?.cancel()
         ticker = Task { [weak self] in
@@ -109,14 +133,30 @@ final class AppModel: ObservableObject {
     }
 
     private func tick() {
-        guard running, let live = audio.liveFrame() else { return }
-        let seconds = Int(max(0, live.time))
-        let text = String(format: "%02d:%02d", seconds / 60, seconds % 60)
-        if text != elapsed { elapsed = text }
-        if settings.limit > 0 && live.time >= Double(settings.limit * 60) {
-            stop(message: "Session finished.")
-            return
+        guard running else { return }
+        if settings.track == .classical, let p = audio.piecePosition() {
+            let text = "\(Self.pieceClock(p.now)) / \(Self.pieceClock(p.length))"
+            if text != pieceTime { pieceTime = text }
         }
+        guard let live = audio.liveFrame() else { return }
+        let elapsed = live.time
+        // The sound engine fades for rests on its own clock; this keeps the screen and the classical piece in step.
+        let segment = settings.mode == .interval ? settings.plan.segment(at: elapsed) : (resting: false, left: 0)
+        if segment.resting != resting {
+            resting = segment.resting
+            audio.setResting(resting)
+            status = resting ? "Time for a break. The next swell starts by itself." : ""
+        }
+        let length = settings.sessionLength
+        let text = settings.mode == .interval ? "\(resting ? "Rest" : "Swell") \(Self.clock(segment.left))"
+            : length > 0 ? "\(Self.clock(max(0, length - elapsed))) left" : Self.clock(elapsed)
+        if text != sessionText { sessionText = text }
+        if length > 0 && elapsed >= length { stop(message: "Session finished.") }
+    }
+
+    private static func pieceClock(_ seconds: Double) -> String {
+        let s = Int(max(0, seconds))
+        return "\(s / 60):" + String(format: "%02d", s % 60)
     }
 
     private func handle(_ event: AudioController.Event) {
@@ -136,6 +176,10 @@ final class AppModel: ObservableObject {
             start()
         case .remotePause:
             stop()
+        case .pieceChanged(let index):
+            if settings.piece != index { settings.piece = index }
+        case .classical(let message):
+            if running { status = message ?? (resting ? status : "") }
         }
     }
 
@@ -151,21 +195,11 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: Audio files
+    // MARK: Classical mix
 
-    func addFiles(_ urls: [URL]) {
-        Task {
-            for url in urls {
-                let label = url.lastPathComponent
-                status = "Loading \(label)…"
-                do {
-                    fileNames.append(try await audio.addFile(url))
-                } catch {
-                    status = "\(label) couldn't be read. Try an MP3, M4A or WAV file."
-                    return
-                }
-            }
-            status = running ? "" : "Press play to begin."
-        }
+    func skipPiece(_ step: Int) {
+        let next = audio.skip(step)
+        pieceTime = ""
+        if settings.piece != next { settings.piece = next }
     }
 }

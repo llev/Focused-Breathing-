@@ -29,6 +29,7 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 - Nothing on the audio thread may allocate memory or take a lock. The render code reads settings through atomics.
 - Claude can't build iOS apps here. Push and check the iOS GitHub Actions run, which runs the tests and builds for the Simulator.
 - `sw.js` covers the web app only. iOS changes don't need a `VERSION` bump.
+- The iOS app downloads the Classical mix from `https://swellotic.com/`. When `classical.json` changes, copy it to `ios/Swellotic/Resources/classical.json` too, so a fresh install starts with the same list.
 
 ## Rules
 
