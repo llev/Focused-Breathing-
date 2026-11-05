@@ -14,7 +14,7 @@ You need a Mac with Xcode 26 or later and an iPhone on iOS 18 or later.
 
 1. Open `ios/Swellotic.xcodeproj` in Xcode.
 2. Select the **Swellotic** target, then **Signing & Capabilities**. Choose your team. A free Apple ID works for your own phone.
-3. If Xcode shows a red error about the **Bundle Identifier**, change `app.swellotic.ios` in that box to something only you would use, such as `com.yourname.swellotic`. It's the app's unique ID, which Apple uses to tell apps apart. People never see it.
+3. If Xcode shows a red error about the **Bundle Identifier**, that usually means you haven't chosen your team yet. The ID is `com.swellotic.app`, taken from `swellotic.com`. Apple uses it to tell apps apart, and people never see it. Keep it unless Xcode says it's taken by someone else.
 4. Connect your iPhone, choose it as the run destination and press **Run**. The first time, approve the developer on the phone under **Settings > General > VPN & Device Management**, and turn on **Developer Mode** if asked.
 
 With a free Apple ID the app stops opening after 7 days, so run it from Xcode again. A paid Apple Developer account ($99 a year) removes that limit and lets you share it with testers through TestFlight.

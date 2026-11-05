@@ -5,10 +5,10 @@ Work through these phases in order. Tick items off as they're finished. Phase 2 
 ## Decisions Lloyd needs to make
 
 - [x] **Name:** Swellotic, with the line "Breathe. Listen. Focus."
-- [ ] **Name checks:** search app stores, domains and the UK IPO trademark register, and test the name with a few people.
+- [x] **Name checks:** on 5 November 2026 Lloyd found no apps, trademarks or businesses called Swellotic. Testing the name with a few people is still worth doing.
 - [ ] **Repo name:** rename `Focused-Breathing-` to match the app.
-- [ ] **Hosting:** Cloudflare Pages, Netlify or GitHub Pages. All can serve a PWA over HTTPS. Use relative paths so the app works from any of them.
-- [ ] **Web address:** a custom domain makes it easier to move hosts later without breaking people's installed apps.
+- [x] **Hosting:** Cloudflare Pages, decided 5 November 2026, moving from Netlify. It doesn't charge for bandwidth, which matters with about 200MB of classical music per listener who saves the whole set. Each file must be under 25MB. Its default caching revalidates every file, which suits `sw.js`. Keep relative paths so the app works from any host.
+- [x] **Web address:** `swellotic.com`, bought 5 November 2026. Both apps download the classical pieces from it, so the host can change without breaking the iPhone app.
 - [ ] **Licence:** none for now. Add MIT only if the code should be open for reuse.
 
 ## Phase 1: Make it installable
@@ -19,7 +19,7 @@ Work through these phases in order. Tick items off as they're finished. Phase 2 
 - [x] Bundle the fonts locally and remove the Google Fonts links. This supports offline use and stops visitor data going to Google.
 - [x] Add a service worker that caches the app files for offline use.
 - [x] Update the service worker safely so people don't get stuck on an old version.
-- [ ] Deploy to the chosen host over HTTPS. Waiting for Lloyd's hosting decision.
+- [ ] Deploy to Cloudflare Pages at `swellotic.com`. Lloyd connects the GitHub repo in the Cloudflare dashboard, with no build command and the repo root as the output folder.
 
 **Done when:** the app installs on iPhone, Android and desktop Chrome, and opens and plays with no connection.
 
@@ -145,7 +145,8 @@ A native SwiftUI app in `ios/`, started 2026-11-05. See `ios/README.md` for how 
 - [x] Tests for the timeline and sound engine, and a GitHub Actions build on macOS.
 - [ ] Lloyd to run it on his iPhone and fill in the iPhone column of the Phase 2 table using the iOS app.
 - [ ] Lloyd to listen to every sound against the web version, especially the room effect, which uses Apple's reverb instead of the web app's.
-- [ ] Set the bundle identifier to a reverse web address Lloyd controls, and set up an Apple Developer account for TestFlight.
+- [x] Bundle identifier `com.swellotic.app`, from `swellotic.com`. It can't change once the app is on the App Store.
+- [ ] Set up an Apple Developer account for TestFlight.
 - [ ] App Store listing, privacy details and screenshots. Review all copy against the health claim rules.
 - [ ] Later: show what's playing in Apple Music, Apple Watch, widgets and Focus mode.
 
