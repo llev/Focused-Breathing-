@@ -20,7 +20,8 @@ Work through these phases in order. Tick items off as they're finished. Phase 2 
 - [x] Add a service worker that caches the app files for offline use.
 - [x] Update the service worker safely so people don't get stuck on an old version.
 - [x] Deploy to Cloudflare Pages: live at `focused-breathing.pages.dev` on 5 November 2026, with no build command and the repo root as the output folder.
-- [ ] Add `swellotic.com` as the Pages project's custom domain.
+- [x] Add `swellotic.com` as the Pages project's custom domain: live on 5 November 2026, with `www.swellotic.com` too.
+- [ ] Cloudflare Web Analytics was switched on automatically and loads a script from `static.cloudflareinsights.com`, which breaks the own-site rule and isn't in the privacy notice. Lloyd to turn it off, or agree to keep it and add it to `privacy.html`.
 - **Cloudflare quirks (5 November 2026):** Pages drops `.html` from addresses with a redirect, so `sw.js` stores each file as the page it ends up at and opens `/privacy` as `privacy.html`. Pages also ignores range requests for static files, which Safari needs to play audio, so `functions/audio/[[path]].js` answers them for the Classical mix. Each music request then counts towards the free plan's 100,000 function requests a day.
 
 **Done when:** the app installs on iPhone, Android and desktop Chrome, and opens and plays with no connection.
