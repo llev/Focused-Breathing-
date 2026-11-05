@@ -44,7 +44,7 @@ Clone the repo, open the folder in Claude Code, and ask:
 
 ## Health note
 
-Breathing Room is a general wellbeing and focus tool. It isn't a medical device and doesn't diagnose, treat or prevent any condition. If you feel light-headed, stop and breathe normally.
+Swellotic is a general wellbeing and focus tool. It isn't a medical device and doesn't diagnose, treat or prevent any condition. If you feel light-headed, stop and breathe normally.
 
 ## Licence
 
