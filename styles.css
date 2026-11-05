@@ -5,7 +5,8 @@
 @font-face { font-family: "Nunito"; font-style: normal; font-weight: 300; font-display: swap; src: url("fonts/nunito-latin-300-normal.woff2") format("woff2"); }
 
 /* Page basics: safe-area padding keeps content clear of the iPhone notch and home bar. */
-:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* The status bar and home indicator space is padding inside the body, so the body reaches the screen's edges and nothing,
+   such as the player bar's shadow, is cut off in a hard line above the home indicator. */
 body { margin: 0; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
@@ -23,14 +24,14 @@ img { max-width: 100%; }
 /* The app fills the visible screen. --app-height and --short come from fitScreen in app.js, because iPhone CSS heights can
    include space under Safari's toolbar, or come up one status bar short in the installed app. */
 html { height: 100%; height: 100dvh; height: var(--app-height, 100dvh); overflow: hidden; }
-/* The body fills the space inside the page's status bar and home indicator padding, never the full height. */
 body { height: 100%; overflow: hidden; }
 body {
   background: var(--night); color: var(--ink); font: 400 16px/1.4 var(--body);
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
 #tide { position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100lvh; height: max(var(--app-height, 100lvh), 100lvh); }
 .glass {
