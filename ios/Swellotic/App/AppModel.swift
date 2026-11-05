@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Connects the screen to the sound. Holds the settings, starts and stops sessions, and tells the visuals where the breath is.
 @MainActor
@@ -18,9 +17,6 @@ final class AppModel: ObservableObject {
     private var preview: BreathTimeline
     private var ticker: Task<Void, Never>?
     private var resumeCheck: Task<Void, Never>?
-    private var lastTapped = -1.0
-    private var onScreen = true
-    private let haptic = UIImpactFeedbackGenerator(style: .soft)
 
     init() {
         let saved = Settings.load()
@@ -77,9 +73,7 @@ final class AppModel: ObservableObject {
         running = true
         showResume = false
         elapsed = "00:00"
-        lastTapped = -1
         status = settings.track == .files && fileNames.isEmpty ? "Add audio files to hear your music." : ""
-        if settings.haptics { haptic.prepare() }
         startTicker()
     }
 
@@ -103,7 +97,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// The clock, the time limit and the breath taps. Runs while playing, including in the background.
+    /// The clock and the time limit. Runs while playing, including in the background.
     private func startTicker() {
         ticker?.cancel()
         ticker = Task { [weak self] in
@@ -122,14 +116,6 @@ final class AppModel: ObservableObject {
         if settings.limit > 0 && live.time >= Double(settings.limit * 60) {
             stop(message: "Session finished.")
             return
-        }
-        // A gentle tap as each breath turns. iOS only allows this while Swellotic is on screen.
-        if live.time >= live.phase.start && live.phase.start != lastTapped {
-            lastTapped = live.phase.start
-            if settings.haptics && onScreen {
-                haptic.impactOccurred(intensity: live.phase.isIn ? 0.8 : 0.5)
-                haptic.prepare()
-            }
         }
     }
 
@@ -155,7 +141,6 @@ final class AppModel: ObservableObject {
 
     /// When Swellotic comes back on screen, restart the sound if the phone paused it.
     func scenePhaseChanged(_ phase: ScenePhase) {
-        onScreen = phase == .active
         guard phase == .active, running, !audio.engineRunning else { return }
         if audio.resume() { return }
         resumeCheck?.cancel()

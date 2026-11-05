@@ -53,7 +53,6 @@ struct Settings: Codable, Equatable {
     var musicVolume = 55.0
     var room = true
     var ease = false
-    var haptics = false
     var track = MusicTrack.brown
     var limit = 0
     var scene = SceneStyle.lava
@@ -79,7 +78,6 @@ struct Settings: Codable, Equatable {
         musicVolume = v(.musicVolume, d.musicVolume)
         room = v(.room, d.room)
         ease = v(.ease, d.ease)
-        haptics = v(.haptics, d.haptics)
         track = v(.track, d.track)
         limit = v(.limit, d.limit)
         scene = v(.scene, d.scene)

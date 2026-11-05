@@ -5,7 +5,6 @@ A native SwiftUI version of Swellotic. It has the same breathing timeline, breat
 - **Keeps playing when the screen locks** or you switch apps, using iOS background audio.
 - **Plays alongside Spotify or Apple Music.** With "My music app", Swellotic mixes with them instead of stopping them.
 - **Ignores the silent switch**, so the breaths stay audible.
-- **Tap on each breath:** an optional gentle tap as each breath turns, while the app is on screen.
 - **Lock-screen controls** for play and stop when Swellotic is playing its own music.
 - **Remembers settings** on the phone. Nothing leaves the device.
 
@@ -15,7 +14,7 @@ You need a Mac with Xcode 26 or later and an iPhone on iOS 18 or later.
 
 1. Open `ios/Swellotic.xcodeproj` in Xcode.
 2. Select the **Swellotic** target, then **Signing & Capabilities**. Choose your team. A free Apple ID works for your own phone.
-3. If Xcode says the bundle identifier is taken, change `app.swellotic.ios` to something unique, such as `com.yourname.swellotic`.
+3. If Xcode shows a red error about the **Bundle Identifier**, change `app.swellotic.ios` in that box to something only you would use, such as `com.yourname.swellotic`. It's the app's unique ID, which Apple uses to tell apps apart. People never see it.
 4. Connect your iPhone, choose it as the run destination and press **Run**. The first time, approve the developer on the phone under **Settings > General > VPN & Device Management**, and turn on **Developer Mode** if asked.
 
 With a free Apple ID the app stops opening after 7 days, so run it from Xcode again. A paid Apple Developer account ($99 a year) removes that limit and lets you share it with testers through TestFlight.
@@ -29,7 +28,6 @@ Claude can't hear the app, so these need a person and a real iPhone. Record resu
 - Take a call or use Siri, then return. Does the sound come back, or does "Tap to resume" appear?
 - Unplug or disconnect headphones. Swellotic should stop rather than play out loud.
 - Flip the silent switch. The breaths should still play.
-- Turn on "Tap on each breath" and check the taps land with the breath sounds.
 - How every breath sound and background sound compares with the web version.
 
 ## How it's built

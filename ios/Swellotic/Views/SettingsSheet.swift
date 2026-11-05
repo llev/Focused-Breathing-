@@ -62,8 +62,6 @@ struct SettingsSheet: View {
             }
             ToggleRow(title: "Slow down gradually", detail: "Starts at 10 breaths a minute and reaches your pace over 3 minutes.",
                       isOn: $model.settings.ease, tint: tint)
-            ToggleRow(title: "Tap on each breath", detail: "A gentle tap as each breath turns, while Swellotic is on screen.",
-                      isOn: $model.settings.haptics, tint: tint)
             Note(text: "Speed changes apply from the next breath. If you feel light-headed, stop and breathe normally.")
         }
     }
