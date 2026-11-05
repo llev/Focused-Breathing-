@@ -48,6 +48,7 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 ### Privacy
 
 - No accounts, analytics or trackers without Lloyd's agreement.
+- Lloyd agreed on 5 November 2026 to anonymous counts in the web app with PostHog's EU servers. Only `app opened`, `session started` and `session ended` are sent, with the choices behind a session. They go to `/ingest` on Swellotic's own site, and `functions/ingest.js` passes them on without the IP address. Nothing is stored on the device, there are no IDs that last beyond a page load, no person profiles, no recordings and no automatic click tracking. Adding an event, or anything that identifies people over time, needs Lloyd's agreement and a privacy notice update.
 - People's audio files stay on their device and are never uploaded.
 - Saved Classical mix pieces stay in the browser's own storage on the device.
 

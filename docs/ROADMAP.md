@@ -121,12 +121,25 @@ Still to decide for the Classical mix:
 - **Bandwidth:** about 2 hours 48 minutes of music per listener could use up a free hosting plan quickly. Cloudflare Pages doesn't charge for bandwidth.
 - **Listening:** Lloyd should check every piece for sound quality and sudden loud passages.
 
+### Analytics
+
+Decided 5 November 2026: anonymous counts in the web app, with PostHog's EU servers.
+
+- **What's sent:** `app opened` (whether it's installed, and iPhone or iPad, Android or computer), `session started` (the music, breath sound, pace, pattern, session type and its times, scene and colours) and `session ended` (finished, stopped or closed, and minutes played).
+- **Privacy:** no cookies or anything else stored on the device, and a random number per page load in place of an ID. The page sends to `/ingest` on Swellotic's own site. `functions/ingest.js`, a Cloudflare Pages Function, forwards only those three events with plain values, adds the country, and never passes on the IP address. Events can't create person profiles. That should mean no consent banner is needed under UK rules, but it isn't legal advice.
+- **No PostHog script:** the app sends its own small messages, so nothing loads from another site and the "own site" rule holds.
+- **Only on the live site:** `swellotic.com` and `.pages.dev` addresses send counts. Local testing doesn't.
+- **What it can't show:** whether people come back after a week. That needs an ID kept on the device and consent, so Phase 6 asks testers directly instead.
+- **iPhone app:** no analytics. App Store Connect gives downloads and usage from people who opt in.
+- [ ] Lloyd: in PostHog's project settings, turn off session replay and autocapture, and turn on "Discard client IP data" as a second safeguard.
+- [ ] Mention the counts in the privacy notice in Phase 5.
+
 ## Phase 5: Launch checks
 
 - [ ] Add automated browser tests for start and stop, every sound and visual, the sliders, and saved settings.
 - [ ] Run a full accessibility audit, including screen readers, keyboard use and text contrast over the moving scenes.
 - [ ] Check performance on an older phone, especially Lava lamp.
-- [ ] Add a privacy notice covering local settings and what the host logs.
+- [ ] Add a privacy notice covering local settings, what the host logs and the anonymous counts.
 - [ ] Add an About page with the health note, and credit any third-party fonts.
 - [ ] Check licences for bundled fonts.
 - [ ] Review all copy against the health claim rules in `CLAUDE.md`.

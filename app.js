@@ -9,6 +9,25 @@
   delete S.intervals;
   const save = () => { try { localStorage.setItem('breathing-room', JSON.stringify(S)); } catch (e) {} };
 
+  /* Anonymous counts, passed on to PostHog by functions/ingest.js on Swellotic's own site. Nothing is stored on the device
+     and no one is identified: each page load gets a random number that's never saved, and the server drops the IP address.
+     Only the live site sends them, so local testing never does. */
+  const visit = Math.random().toString(36).slice(2, 14);
+  const counting = /(^|\.)swellotic\.com$|\.pages\.dev$/.test(location.hostname);
+  function count(event, props) {
+    if (!counting) return;
+    const body = JSON.stringify({ event, visit, props: props || {} });
+    try { if (navigator.sendBeacon && navigator.sendBeacon('ingest', body)) return; } catch (e) {}
+    fetch('ingest', { method: 'POST', body, keepalive: true }).catch(() => {});
+  }
+  /* The choices behind a session, so we can see which sounds and session types people use. */
+  const choices = () => ({
+    music: S.track, breath_sound: S.cue, breaths_per_minute: +S.bpm, pattern: S.ratio, slow_down: !!S.ease, room: !!S.room,
+    session: S.mode, timer_minutes: S.mode === 'timer' ? limitMin() : null,
+    swell_minutes: S.mode === 'interval' ? +S.swellMin : null, rest_minutes: S.mode === 'interval' ? +S.restMin : null,
+    rounds: S.mode === 'interval' ? +S.rounds : null, scene: S.visual, colours: S.palette
+  });
+
   const RATIOS = { even: ['Even', .5], long: ['Longer out', .4], longest: ['Much longer out', 1 / 3] };
   const CUES = { bowl: 'Singing bowl', gong: 'Gong', words: 'Spoken words', piano: 'Soft piano', wood: 'Wooden marimba', tone: 'Soft hum', chime: 'Chime', breath: 'Ocean', none: 'Silent' };
   const TRACKS = {
@@ -545,8 +564,15 @@
     setGo(); $('sessionSum').textContent = S.mode === 'interval' ? `Swell ${fmt(S.swellMin * 60)}` : sessionLength() ? `${fmt(sessionLength())} left` : fmt(0);
     $('status').textContent = '';
     lockScreen();
+    count('session started', choices());
   }
+  function ended(reason) {
+    count('session ended', { reason, minutes: Math.round((ctx.currentTime - sessionStart) / 6) / 10, music: S.track, session: S.mode });
+  }
+  /* A session still playing when the page closes counts as closed. */
+  addEventListener('pagehide', () => { if (running) ended('closed'); });
   function stop(message) {
+    ended(message === 'Session finished.' ? 'finished' : 'stopped');
     const t = ctx.currentTime;
     A.master.gain.cancelScheduledValues(t); A.master.gain.setTargetAtTime(0, t, .15);
     stopVoice(voice); voice = null; running = false; paused = false; showResume(false);
@@ -825,4 +851,9 @@
 
   setSheet(innerWidth >= 900);
   paint(); resetPreview(); setInterval(tick, 250); draw();
+  count('app opened', {
+    installed: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
+    device: /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform)) ? 'iphone or ipad'
+      : /Android/.test(navigator.userAgent) ? 'android' : 'computer'
+  });
 })();
