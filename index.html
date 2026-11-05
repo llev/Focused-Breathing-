@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Breathing Room</title>
+<meta name="description" content="A breathing guide with music or ambient sound, with separate volumes for each.">
+<meta name="theme-color" content="#15111d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Nunito:wght@300&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<canvas id="tide" aria-hidden="true"></canvas>
+<main class="app" id="app">
+  <div class="stage">
+    <div class="top"><h1>Breathing Room</h1><span class="clock glass" id="clock">Preview</span></div>
+    <div class="phase">
+      <span id="word">In</span>
+      <span id="timing" class="glass" hidden></span>
+    </div>
+    <div class="foot">
+      <p id="status" role="status">Press play to begin.</p>
+      <div class="bar glass">
+        <button id="go" type="button" aria-label="Start">
+          <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.3c0-1 1.1-1.6 2-1.1l10.4 6.7c.8.5.8 1.7 0 2.2L10 19.8c-.9.5-2-.1-2-1.1z"/></svg>
+          <svg class="stop-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
+        </button>
+        <div class="mix">
+          <div class="row"><label for="breathVol">Breath <output id="breathOut" for="breathVol"></output></label>
+            <input id="breathVol" type="range" min="0" max="100"></div>
+          <div class="row"><label for="musicVol">Music <output id="musicOut" for="musicVol"></output></label>
+            <input id="musicVol" type="range" min="0" max="100"></div>
+        </div>
+        <button id="quiet" class="round" type="button" aria-label="Settings" aria-expanded="true" aria-controls="desk">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.5"/><circle cx="8.5" cy="17" r="2.5"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="desk" id="desk">
+    <div class="sheet-head"><h2>Settings</h2><button id="done" type="button">Done</button></div>
+    <details class="panel glass" id="panel-pace">
+      <summary><h2>Breathing</h2><span class="sum" id="sum-pace"></span></summary>
+      <div class="panel-body">
+        <div class="row"><label for="bpm">Breaths per minute <output id="bpmOut" for="bpm"></output></label>
+          <input id="bpm" type="range" min="2" max="12" step="0.5"></div>
+        <fieldset><legend>Breath sound</legend><div class="chips" id="cue"></div><p class="note" id="cueNote" hidden>Uses your device's built-in voice, so it will sound different on each device.</p></fieldset>
+        <fieldset><legend>Breathing pattern</legend><div class="chips seg" id="ratio"></div></fieldset>
+        <label class="check"><span>Slow down gradually<small>Starts at 10 breaths a minute and reaches your pace over 3 minutes.</small></span><input id="ease" type="checkbox"></label>
+        <p class="note">Speed changes apply from the next breath. If you feel light-headed, stop and breathe normally.</p>
+      </div>
+    </details>
+
+    <details class="panel glass" id="panel-music">
+      <summary><h2>Music</h2><span class="sum" id="sum-music"></span></summary>
+      <div class="panel-body">
+        <div class="chips" id="track" role="radiogroup" aria-label="Music"></div>
+        <div id="own" hidden>
+          <label class="file">Add audio files<input class="sr" id="file" type="file" accept="audio/*" multiple></label>
+          <ol id="files"></ol>
+        </div>
+        <p class="note" id="trackNote"></p>
+        <label class="check"><span>Put music in the room<small>Keeps the breath close and makes the music sound further away in your headphones.</small></span><input id="room" type="checkbox"></label>
+      </div>
+    </details>
+
+    <div class="pair">
+      <details class="panel glass" id="panel-look">
+        <summary><h2>Visuals</h2><span class="sum" id="sum-look"></span></summary>
+        <div class="panel-body">
+          <fieldset><legend>Scene</legend><div class="chips" id="visual"></div></fieldset>
+          <fieldset><legend>Colours</legend><div class="chips" id="palette"></div></fieldset>
+          <label class="check"><span>In and Out</span><input id="words" type="checkbox"></label>
+          <label class="check"><span>Countdown</span><input id="countdown" type="checkbox"></label>
+        </div>
+      </details>
+
+      <details class="panel glass" id="panel-sess">
+        <summary><h2>Session</h2><span class="sum" id="sum-sess"></span></summary>
+        <div class="panel-body">
+          <fieldset><legend>Stop after</legend><div class="chips" id="limit"></div></fieldset>
+          <p class="note">Keep this page open. On a phone, sound may stop when the screen locks.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
