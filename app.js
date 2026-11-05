@@ -708,10 +708,10 @@
   bind('customMin', 'customMin', e => +e.value);
   chips($('rounds'), 'rounds', ROUNDS, 'rounds', () => { S.rounds = +S.rounds; save(); paint(); });
   /* Timer and Interval tabs: the open tab is the kind of session. Arrow keys move between them, as tabs usually do. */
-  const pickMode = m => { S.mode = m; save(); paint(); $('tab-' + m).focus(); };
+  const pickMode = (m, fromKeys) => { S.mode = m; save(); paint(); if (fromKeys) $('tab-' + m).focus(); };
   ['timer', 'interval'].forEach(m => $('tab-' + m).addEventListener('click', () => pickMode(m)));
   $('tab-timer').parentElement.addEventListener('keydown', e => {
-    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { e.preventDefault(); pickMode(S.mode === 'timer' ? 'interval' : 'timer'); }
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { e.preventDefault(); pickMode(S.mode === 'timer' ? 'interval' : 'timer', true); }
   });  bind('swellMin', 'swellMin', e => +e.value);
   bind('restMin', 'restMin', e => +e.value);
   chips($('limit'), 'limit', LIMITS, 'limit', () => { if (S.limit !== 'custom') S.limit = +S.limit; save(); paint(); });
@@ -738,10 +738,14 @@
   $('quiet').addEventListener('click', () => setSheet($('app').classList.contains('quiet')));
   $('done').addEventListener('click', () => setSheet(false));
   /* Session drawer. The rest of the app is inert while it's open, and focus returns to the button when it closes. */
+  let usingKeys = false;
+  addEventListener('keydown', () => { usingKeys = true; }, true);
+  addEventListener('pointerdown', () => { usingKeys = false; }, true);
   function setDrawer(open) {
     $('sessionSheet').classList.toggle('open', open); $('scrim').classList.toggle('open', open);
     $('app').inert = open; $('sessionBtn').setAttribute('aria-expanded', String(open));
-    if (open) setTimeout(() => $('sessionDone').focus(), 50); else $('sessionBtn').focus();
+    /* Focus moves to the drawer itself, which shows no ring after a tap. It returns to the button only for keyboard users. */
+    if (open) setTimeout(() => $('sessionSheet').focus(), 50); else if (usingKeys) $('sessionBtn').focus();
   }
   const drawerOpen = () => $('sessionSheet').classList.contains('open');
   $('sessionBtn').addEventListener('click', () => setDrawer(true));

@@ -22,7 +22,9 @@ img { max-width: 100%; }
 *, *::before, *::after { box-sizing: border-box; }
 /* The app fills the visible screen. --app-height and --short come from fitScreen in app.js, because iPhone CSS heights can
    include space under Safari's toolbar, or come up one status bar short in the installed app. */
-html, body { height: 100%; height: 100dvh; height: var(--app-height, 100dvh); overflow: hidden; }
+html { height: 100%; height: 100dvh; height: var(--app-height, 100dvh); overflow: hidden; }
+/* The body fills the space inside the page's status bar and home indicator padding, never the full height. */
+body { height: 100%; overflow: hidden; }
 body {
   background: var(--night); color: var(--ink); font: 400 16px/1.4 var(--body);
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
@@ -73,6 +75,7 @@ h1 { margin: 0; font: 600 1.0625rem/1.2 var(--body); letter-spacing: -.01em; tex
   transform: translateY(105%); visibility: hidden; transition: transform .32s cubic-bezier(.2, .9, .3, 1), visibility .32s;
 }
 .drawer.open { transform: none; visibility: visible; }
+.drawer:focus { outline: none; }
 .drawer-head {
   display: flex; flex: none; justify-content: space-between; align-items: center; background: #1d1827;
   padding: 10px max(20px, env(safe-area-inset-right, 0px)) 6px max(20px, env(safe-area-inset-left, 0px));
