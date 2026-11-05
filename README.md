@@ -12,7 +12,7 @@ A breathing guide with music or ambient sound, and a separate volume for each. I
 - **Breath sounds:** singing bowl, gong, soft piano, wooden marimba, soft hum, chime, ocean or silent, each lasting the whole breath. Spoken words return once recorded clips are added.
 - **Background sound:** brown noise, pink noise, rain, beach, stream, wind, fireplace, ambient chords or soft keys, all generated in the browser
 - **Classical mix:** 20 calm public domain recordings made for Musopen, with previous, next and repeat-one controls. The set repeats by default. Pieces you listen to are saved for offline use, or you can save the whole set.
-- **Sessions:** a session button under the breathing word opens a drawer with a time limit, a custom length, and swell and rest, which takes turns between focus time and quiet breaks.
+- **Sessions:** a session button under the breathing word opens a drawer with a time limit, a custom length, and an interval option, which takes turns between a swell for focus and a rest for a quiet break.
 - **Your own music app:** play Spotify, Apple Music or another app alongside it. This is hidden on iPhone and iPad, because the breaths stop whenever you switch apps there.
 - **Separate volumes:** breath and music each have their own slider
 - **Music in the room:** keeps the breath close and makes the music sound further away in headphones

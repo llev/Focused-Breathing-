@@ -88,7 +88,7 @@ Lloyd reported that with "My music app", the breaths sometimes kept going but of
 
 - [ ] Add a short first-run screen that explains the idea, with presets such as "Calm desk", "Beach walk" and "My own music".
 - [ ] Make it obvious that "My music app" works alongside Spotify and Apple Music.
-- [x] Move session controls into a drawer opened from a session button under the breathing word. It has stop-after times, a custom length from 5 to 240 minutes, and swell and rest. Swell is 5 to 90 minutes and rest is 1 to 30. During a rest, a soft chime plays, sound fades out, the classical piece pauses, and the word reads "Rest". Another chime brings sound back for the next swell. The word "Pomodoro" is avoided because it's a trademark.
+- [x] Move session controls into a drawer opened from a session button under the breathing word. It has stop-after times, a custom length from 5 to 240 minutes, and an Interval switch. Its Swell time is 5 to 90 minutes and its Rest time is 1 to 30. During a rest, a soft chime plays, sound fades out, the classical piece pauses, and the word reads "Rest". Another chime brings sound back for the next swell. The word "Pomodoro" is avoided because it's a trademark.
 - [x] Hide "My music app" on iPhone and iPad, where it stops whenever you switch apps. Anyone who had it chosen gets the Classical mix. It's still offered on Android, which hasn't been tested yet.
 - [ ] Reduce the number of choices shown at first, if testing supports it.
 - [ ] Allow keyboard control, such as Space to start and stop.

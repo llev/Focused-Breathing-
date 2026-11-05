@@ -52,7 +52,7 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 
 ### Copy
 
-- Don't use the word "Pomodoro" in the app or marketing. It's a registered trademark. Use "Swell and rest".
+- Don't use the word "Pomodoro" in the app or marketing. It's a registered trademark. The session option is called "Interval", and its two times are "Swell" and "Rest".
 - Use UK English and plain, friendly language.
 - Name things by what people recognise, such as "Breath" and "Music", not technical terms.
 
