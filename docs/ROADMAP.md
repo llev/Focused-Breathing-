@@ -32,6 +32,7 @@ Progress: desktop Chrome reports the app as installable, and it opens and plays 
 - **Status bar:** `black-translucent`, so the scene runs under the iPhone status bar. The existing safe-area padding keeps the controls clear of it.
 - **Offline:** the service worker serves every app file from a versioned cache, with no network request.
 - **Updates:** every release must bump `VERSION` in `sw.js`, or people won't get the new files. A new version downloads in the background and waits. The app offers "Tap to update" only when nothing is playing, so a session is never cut off. A new version also takes over when the app is fully closed and reopened. The app looks for a new version when it returns to the front, at most every 30 minutes.
+- **Launch screen:** the icon's sun rises behind the waves, the name settles letter by letter, and the tagline arrives one word at a time. It lasts about two and a half seconds, and a tap or key press skips it. With reduced motion turned on, it simply fades.
 - **Host settings:** whichever host is chosen, `sw.js` should be served without long-term caching. Most hosts do this by default.
 
 ## Phase 2: Real device audio test

@@ -96,8 +96,10 @@ input[type=range]::-webkit-slider-thumb {
 }
 input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 7px rgba(0, 0, 0, .4); }
 input[type=range]:disabled { opacity: .45; }
-.desk { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
-.desk::-webkit-scrollbar { display: none; }
+.desk { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* Only the panels scroll, so the settings header can never move. */
+.desk-body { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
+.desk-body::-webkit-scrollbar { display: none; }
 .sheet-head { display: none; }
 .pair { display: grid; gap: 12px; align-items: start; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .panel { border-radius: 22px; min-width: 0; flex: none; }
@@ -150,16 +152,58 @@ legend { padding: 0; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
   .app, .app.quiet { grid-template-columns: minmax(0, 1fr); }
   .desk, .app.quiet .desk {
     display: flex; position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; max-width: 620px; margin-inline: auto; max-height: 84%;
-    padding: 8px max(14px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
-    border-radius: 28px 28px 0 0; background: var(--sheet); border: 1px solid var(--hair); border-bottom: 0;
+    overflow: hidden; border-radius: 28px 28px 0 0; background: var(--sheet); border: 1px solid var(--hair); border-bottom: 0;
     -webkit-backdrop-filter: blur(34px) saturate(170%); backdrop-filter: blur(34px) saturate(170%);
     box-shadow: 0 -16px 50px rgba(0, 0, 0, .4); transition: transform .32s cubic-bezier(.2, .9, .3, 1), visibility .32s;
   }
   .app.quiet .desk { transform: translateY(105%); visibility: hidden; }
-  .sheet-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 6px 2px; flex: none; position: sticky; top: -8px; z-index: 2; margin-inline: -14px; padding-inline: 20px; background: #1d1827; }
+  .sheet-head {
+    display: flex; flex: none; justify-content: space-between; align-items: center; background: #1d1827;
+    padding: 10px max(20px, env(safe-area-inset-right, 0px)) 6px max(20px, env(safe-area-inset-left, 0px));
+  }
+  .desk-body { padding: 10px max(14px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
   .sheet-head h2 { font-size: 1.25rem; }
   #done { background: transparent; color: var(--tint); font-weight: 600; min-height: 44px; padding: 0 6px; }
 }
 @media (max-width: 599px) { .pair { grid-template-columns: minmax(0, 1fr); } }
 @media (max-height: 640px) { #go { width: 54px; height: 54px; } #word { font-size: 4rem; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Launch screen: the sun rises behind the swell like a breath in, the name settles, then the tagline arrives one word at a time.
+   It fades away by itself after about two and a half seconds, and a tap or key press skips it. */
+.splash {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(120% 80% at 50% 40%, #2a1238 0%, var(--night) 70%);
+  animation: splash-out .5s cubic-bezier(.4, 0, .2, 1) 2.1s forwards;
+}
+.splash.skip { animation: splash-out .3s ease forwards; }
+.splash-mark { display: grid; justify-items: center; text-align: center; animation: splash-drift .5s cubic-bezier(.4, 0, .2, 1) 2.1s forwards; }
+.splash.skip .splash-mark { animation: splash-drift .3s ease forwards; }
+.splash-art { width: min(52vw, 200px); height: auto; overflow: visible; margin-bottom: 6px; }
+.splash-art * { transform-box: fill-box; transform-origin: center; }
+.splash-glow { opacity: 0; animation: splash-glow 1.6s cubic-bezier(.2, .8, .2, 1) .1s forwards; }
+.splash-sun { transform: translateY(70%); animation: splash-rise 1.2s cubic-bezier(.22, .9, .25, 1) .15s forwards; }
+.splash-wave { fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 160; stroke-dashoffset: 160; animation: splash-draw 1s cubic-bezier(.45, 0, .2, 1) .2s forwards; }
+.splash-wave.two { stroke-width: 2.6; opacity: .85; animation-delay: .38s; }
+.splash-name { margin: 0; font: 300 clamp(2.75rem, 13vw, 4.25rem)/1.05 var(--round); letter-spacing: -.015em; }
+.splash-name span {
+  display: inline-block; opacity: 0; transform: translateY(.3em); filter: blur(6px);
+  animation: splash-letter .8s cubic-bezier(.2, .8, .2, 1) calc(.5s + var(--i) * 45ms) forwards;
+}
+/* The breathing word waits until the launch screen has gone, so the two don't overlap. */
+.phase { transition: opacity .6s ease; }
+.launch .phase { opacity: 0; }
+/* The negative margin cancels the letter spacing after the last word, so the line stays centred. */
+.splash-line { margin: 14px -.26em 0 0; font-size: .8125rem; font-weight: 500; letter-spacing: .26em; text-transform: uppercase; color: #ffb27a; }
+.splash-line span { display: inline-block; opacity: 0; transform: translateY(6px); animation: splash-word .6s ease calc(1.05s + var(--i) * .2s) forwards; }
+@keyframes splash-glow { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes splash-rise { to { transform: none; } }
+@keyframes splash-draw { to { stroke-dashoffset: 0; } }
+@keyframes splash-letter { to { opacity: 1; transform: none; filter: none; } }
+@keyframes splash-word { to { opacity: 1; transform: none; } }
+@keyframes splash-drift { to { transform: scale(1.04); filter: blur(4px); } }
+@keyframes splash-out { to { opacity: 0; visibility: hidden; pointer-events: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .splash-mark, .splash-mark *, .splash.skip .splash-mark { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; stroke-dashoffset: 0 !important; }
+  .splash-wave.two { opacity: .85 !important; }
+}

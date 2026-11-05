@@ -16,11 +16,28 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="launch">
+<div class="splash" id="splash" aria-hidden="true">
+  <div class="splash-mark">
+    <svg class="splash-art" viewBox="0 0 160 100">
+      <defs>
+        <linearGradient id="splashSun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc58a"/><stop offset="1" stop-color="#ff7a59"/></linearGradient>
+        <radialGradient id="splashGlow"><stop offset="0" stop-color="#ffb27a" stop-opacity=".5"/><stop offset="1" stop-color="#ffb27a" stop-opacity="0"/></radialGradient>
+        <clipPath id="splashSea"><path d="M8 59C24 53 40 53 56 59S88 66 104 59 136 52 152 58L160 58V0H0V59Z"/></clipPath>
+      </defs>
+      <circle class="splash-glow" cx="80" cy="50" r="50" fill="url(#splashGlow)"/>
+      <g clip-path="url(#splashSea)"><circle class="splash-sun" cx="80" cy="50" r="24" fill="url(#splashSun)"/></g>
+      <path class="splash-wave" d="M8 59C24 53 40 53 56 59S88 66 104 59 136 52 152 58" stroke="#e8487e"/>
+      <path class="splash-wave two" d="M20 70C34 65 48 65 62 70S90 76 104 70 128 65 140 69" stroke="#ffb347"/>
+    </svg>
+    <p class="splash-name"><span style="--i:0">S</span><span style="--i:1">w</span><span style="--i:2">e</span><span style="--i:3">l</span><span style="--i:4">l</span><span style="--i:5">o</span><span style="--i:6">t</span><span style="--i:7">i</span><span style="--i:8">c</span></p>
+    <p class="splash-line"><span style="--i:0">Breathe.</span> <span style="--i:1">Listen.</span> <span style="--i:2">Focus.</span></p>
+  </div>
+</div>
 <canvas id="tide" aria-hidden="true"></canvas>
 <main class="app" id="app">
   <div class="stage">
-    <div class="top"><div class="brand"><h1>Swellotic</h1><p class="tagline">Breathe. Listen. Focus.</p></div><span class="clock glass" id="clock">Preview</span></div>
+    <div class="top"><div class="brand"><h1>Swellotic</h1><p class="tagline">Breathe. Listen. Focus.</p></div><span class="clock glass" id="clock" hidden></span></div>
     <div class="phase">
       <span id="word">In</span>
       <span id="timing" class="glass" hidden></span>
@@ -48,6 +65,7 @@
 
   <div class="desk" id="desk">
     <div class="sheet-head"><h2>Settings</h2><button id="done" type="button">Done</button></div>
+    <div class="desk-body" id="deskBody">
     <details class="panel glass" id="panel-pace">
       <summary><h2>Breathing</h2><span class="sum" id="sum-pace"></span></summary>
       <div class="panel-body">
@@ -91,6 +109,7 @@
           <p class="note">Keep this page open. On a phone, sound may stop when the screen locks.</p>
         </div>
       </details>
+    </div>
     </div>
   </div>
 </main>

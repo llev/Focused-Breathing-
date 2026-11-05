@@ -359,7 +359,8 @@
     A.master.gain.cancelScheduledValues(sessionStart);
     A.master.gain.setValueAtTime(0, sessionStart); A.master.gain.linearRampToValueAtTime(1, sessionStart + .8);
     applyLevels(); voice = startVoice(S.track); schedule(); voice.tick(ctx.currentTime + 5);
-    setGo(); $('status').textContent = S.track === 'own' && !ownBuffers.length ? 'Add audio files to hear your music.' : '';
+    setGo(); $('clock').textContent = fmt(0); $('clock').hidden = false;
+    $('status').textContent = S.track === 'own' && !ownBuffers.length ? 'Add audio files to hear your music.' : '';
     lockScreen();
   }
   function stop(message) {
@@ -370,7 +371,7 @@
     speechTimers.forEach(clearTimeout); speechTimers = [];
     if (canSpeak()) speechSynthesis.cancel();
     setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch (e) {} }); if (!running) ctx.suspend(); }, 700);
-    setGo(); $('clock').textContent = 'Preview';
+    setGo(); $('clock').hidden = true;
     $('status').textContent = message || 'Press play to begin.';
     if (wake) { wake.release().catch(() => {}); wake = null; }
     resetPreview();
@@ -577,6 +578,15 @@
     sw.addEventListener('controllerchange', () => { if (updating) location.reload(); else { waiting = null; showUpdate(); } });
     $('update').addEventListener('click', () => { if (waiting && !running) { updating = true; waiting.postMessage('update'); } });
   }
+
+  /* Launch screen: CSS plays and hides it. A tap or key press skips it, and it's removed once it has faded. */
+  const splash = $('splash');
+  const skipSplash = () => splash.classList.add('skip');
+  splash.addEventListener('pointerdown', skipSplash);
+  document.addEventListener('keydown', skipSplash, { once: true });
+  splash.addEventListener('animationend', e => {
+    if (e.animationName === 'splash-out') { splash.remove(); document.body.classList.remove('launch'); }
+  });
 
   setSheet(innerWidth >= 900);
   paint(); resetPreview(); setInterval(tick, 250); draw();
