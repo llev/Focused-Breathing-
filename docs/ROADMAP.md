@@ -132,15 +132,16 @@ Decided 5 November 2026: anonymous counts in the web app, with PostHog's EU serv
 - **What it can't show:** whether people come back after a week. That needs an ID kept on the device and consent, so Phase 6 asks testers directly instead.
 - **iPhone app:** no analytics. App Store Connect gives downloads and usage from people who opt in.
 - [ ] Lloyd: in PostHog's project settings, turn off session replay and autocapture, and turn on "Discard client IP data" as a second safeguard.
-- [ ] Mention the counts in the privacy notice in Phase 5.
+- [x] Mention the counts in the privacy notice in Phase 5.
 
 ## Phase 5: Launch checks
 
 - [ ] Add automated browser tests for start and stop, every sound and visual, the sliders, and saved settings.
 - [ ] Run a full accessibility audit, including screen readers, keyboard use and text contrast over the moving scenes.
 - [ ] Check performance on an older phone, especially Lava lamp.
-- [ ] Add a privacy notice covering local settings, what the host logs and the anonymous counts.
-- [ ] Add an About page with the health note, and credit any third-party fonts.
+- [x] Add a privacy notice covering local settings, what the host logs and the anonymous counts: `privacy.html`, linked from Settings in both apps. Lloyd to check the wording, and add his full name or business name if he wants it there.
+- [x] Add an About page with the health note, and credit any third-party fonts: `support.html`, called Help, which also credits Musopen and the performers. It doubles as the App Store support page.
+- [ ] Lloyd: set up Cloudflare Email Routing so `hello@swellotic.com`, the contact address on both pages, forwards to his own email.
 - [ ] Check licences for bundled fonts.
 - [ ] Review all copy against the health claim rules in `CLAUDE.md`.
 - [ ] Add social sharing images and metadata.
@@ -162,7 +163,8 @@ A native SwiftUI app in `ios/`, started 2026-11-05. See `ios/README.md` for how 
 - [ ] Lloyd to listen to every sound against the web version, especially the room effect, which uses Apple's reverb instead of the web app's.
 - [x] Bundle identifier `com.swellotic.app`, from `swellotic.com`. It can't change once the app is on the App Store.
 - [ ] Set up an Apple Developer account for TestFlight.
-- [ ] App Store listing, privacy details and screenshots. Review all copy against the health claim rules.
+- [ ] App Store listing, privacy details and screenshots. Review all copy against the health claim rules. Privacy policy URL: `https://swellotic.com/privacy.html`. Support URL: `https://swellotic.com/support.html`. Privacy label: Data Not Collected, since the iPhone app sends no counts.
+- [ ] Once App Store Connect gives the app its ID, add Apple's Smart App Banner to `index.html`, where a comment marks the spot, so iPhone visitors are offered the app.
 - [ ] Later: show what's playing in Apple Music, Apple Watch, widgets and Focus mode.
 
 ### iOS decisions

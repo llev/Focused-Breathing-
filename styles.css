@@ -177,6 +177,9 @@ legend { padding: 0; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
 .check input:checked::after { transform: translateX(20px); }
 .check input:disabled { opacity: .45; }
 .note { margin: 0; color: var(--soft); font-size: .875rem; }
+.links { margin: 0; display: flex; justify-content: center; gap: 8px; flex: none; }
+.links a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; color: var(--soft); font-size: .875rem; font-weight: 500; text-decoration: none; }
+.links a:hover, .links a:focus-visible { color: var(--ink); text-decoration: underline; }
 /* Classical mix on the main screen: what's playing, with previous, next and repeat-one controls. */
 .now {
   width: 100%; max-width: 580px; border-radius: 22px; padding: 6px 8px 6px 16px;

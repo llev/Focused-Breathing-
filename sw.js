@@ -8,7 +8,7 @@
    offers "Tap to update" when nothing is playing, and the new version also
    takes over by itself the next time the app is fully closed and reopened.
    It never swaps files in the middle of a session. */
-const VERSION = '12';
+const VERSION = '13';
 const CACHE = 'swellotic-' + VERSION;
 /* Classical recordings kept for offline use. This store is not versioned, so app updates don't throw saved music away. */
 const MUSIC = 'swellotic-music';
@@ -19,6 +19,9 @@ const FILES = [
   'app.js',
   'manifest.webmanifest',
   'classical.json',
+  'privacy.html',
+  'support.html',
+  'pages.css',
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -51,9 +54,10 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   if (new URL(req.url).pathname.includes('/audio/classical/')) { event.respondWith(music(req)); return; }
   if (req.mode === 'navigate') {
-    /* Any page address inside the app, including ones with ?query strings, opens the cached app. */
+    /* The Privacy and Help pages open as themselves. Any other page address inside the app, including ones with
+       ?query strings, opens the cached app. */
     event.respondWith(caches.open(CACHE)
-      .then(cache => cache.match('index.html'))
+      .then(cache => cache.match(req, { ignoreSearch: true }).then(page => page || cache.match('index.html')))
       .then(hit => hit || fetch(req)));
     return;
   }

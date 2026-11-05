@@ -13,6 +13,14 @@ struct SettingsSheet: View {
                     breathing(s, tint)
                     music(s, tint)
                     visuals(s, tint)
+                    HStack(spacing: 8) {
+                        Link("Help", destination: URL(string: "https://swellotic.com/support.html")!).padding(.horizontal, 12)
+                        Link("Privacy", destination: URL(string: "https://swellotic.com/privacy.html")!).padding(.horizontal, 12)
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.soft)
+                    .buttonStyle(.plain)
+                    .frame(minHeight: 44)
                 }
                 .padding(14)
             }
