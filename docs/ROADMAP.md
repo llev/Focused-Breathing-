@@ -44,14 +44,16 @@ Lloyd should test the installed app on a real iPhone and Android phone and recor
 | Test | iPhone | Android |
 | --- | --- | --- |
 | Play for 10 minutes with the screen on | | |
-| Lock the screen: does the sound continue? | | |
-| Switch apps and return | | |
+| Lock the screen: does the sound continue? | Brown noise: yes | |
+| Switch apps and return | "My music app": breaths stop when switching to Spotify | |
 | Take a call or trigger Siri or Assistant, then return | | |
 | Connect and disconnect Bluetooth headphones | | |
-| "My music app" with Spotify playing: do both continue? | | |
+| "My music app" with Spotify playing: do both continue? | Hidden on iPhone | |
 | Breath slider changes only the breaths | | |
 | Ring/silent switch behaviour | | |
 | Spoken words clips, once added | | |
+
+Lloyd's first iPhone results, 5 November 2026: generated sounds keep playing in the background, and only "My music app" stops. That mode uses the mixing sound mode so Spotify can keep playing, and iOS only allows background playback for web apps in the non-mixing mode. A web app can't have both.
 
 **Then decide:**
 
@@ -86,12 +88,14 @@ Lloyd reported that with "My music app", the breaths sometimes kept going but of
 
 - [ ] Add a short first-run screen that explains the idea, with presets such as "Calm desk", "Beach walk" and "My own music".
 - [ ] Make it obvious that "My music app" works alongside Spotify and Apple Music.
+- [x] Move session controls into a drawer opened from a session button under the breathing word. It has stop-after times, a custom length from 5 to 240 minutes, and swell and rest. Swell is 5 to 90 minutes and rest is 1 to 30. During a rest, a soft chime plays, sound fades out, the classical piece pauses, and the word reads "Rest". Another chime brings sound back for the next swell. The word "Pomodoro" is avoided because it's a trademark.
+- [x] Hide "My music app" on iPhone and iPad, where it stops whenever you switch apps. Anyone who had it chosen gets the Classical mix. It's still offered on Android, which hasn't been tested yet.
 - [ ] Reduce the number of choices shown at first, if testing supports it.
 - [ ] Allow keyboard control, such as Space to start and stop.
 
 ### Later: included music
 
-Lloyd wants people to be able to press play and hear good music without needing their own files. He's choosing the music later. The likely route is TunePocket for lofi and jazz, and individually checked public domain recordings for classical.
+Lloyd wants people to be able to press play and hear good music without needing their own files. He's choosing the music later. The likely route is TunePocket for lofi and jazz, and individually checked public domain recordings for classical. A shortlist of 20 calm public domain recordings from Musopen is in `docs/music-shortlist.md`, waiting for Lloyd to listen.
 
 Before buying, get written answers from TunePocket on these points:
 
@@ -101,7 +105,18 @@ Before buying, get written answers from TunePocket on these points:
 
 The licence also requires reasonable safeguards against downloading or extracting files, so licensed audio can't simply sit in this public repo.
 
-"Add audio files" is a minor feature because few people keep music files. Only save them on the device if it proves worthwhile.
+"Audio files" was removed on 5 November 2026 and replaced by the Classical mix, which plays the 20 recordings from the shortlist. Each piece shows its title, performer and Musopen credit, with previous, next and repeat-one controls, and the set repeats by default.
+
+Decided for the Classical mix on 5 November 2026:
+
+- **Publishing:** Lloyd agreed to commit the public domain MP3s, about 200MB, so any host serves them with the app.
+- **Offline use:** pieces are kept on the device after 30 seconds of listening. "Save all for offline" keeps the whole set and asks the browser not to clear it. Turning it off frees the space. Without a connection, only kept pieces play, and next and previous skip to them. The service worker answers the partial requests phones make for audio from the kept copy.
+- **Saving costs bandwidth:** a piece kept while listening is downloaded twice, once to play and once to keep. Saving the whole set downloads about 200MB.
+
+Still to decide for the Classical mix:
+
+- **Bandwidth:** about 2 hours 48 minutes of music per listener could use up a free hosting plan quickly. Cloudflare Pages doesn't charge for bandwidth.
+- **Listening:** Lloyd should check every piece for sound quality and sudden loud passages.
 
 ## Phase 5: Launch checks
 
@@ -129,7 +144,8 @@ Whether a breathing cue helps or distracts during focused work is still an open 
 - Separate headphone and speaker outputs aren't supported yet. Chrome's `setSinkId` may make this possible on desktop.
 - Spoken words are hidden until recorded clips are made and checked.
 - Soft keys is a rough generated sketch, not a finished recording.
-- Files added with "Audio files" are lost when the page reloads.
+- Classical mix pieces that haven't been kept on the device need a connection.
+- Safari can clear saved music when the phone runs low on space, even after the app asks it not to.
 - Using `ambient` audio on iPhone may mean the silent switch mutes the breaths.
 - Spotify and Apple Music volumes can't be controlled from this app. On a phone, the side buttons change everything together.
 - Direct Spotify integration is out: its developer terms have barred mixing Spotify content with other audio. Check the current terms before revisiting this.

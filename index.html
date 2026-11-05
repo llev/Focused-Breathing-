@@ -41,6 +41,10 @@
     <div class="phase">
       <span id="word">In</span>
       <span id="timing" class="glass" hidden></span>
+      <button id="sessionBtn" class="session-btn glass" type="button" aria-haspopup="dialog" aria-controls="sessionSheet" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M10 2h4"/></svg>
+        <span class="sr">Session: </span><span id="sessionSum"></span>
+      </button>
     </div>
     <div class="foot">
       <p id="status" role="status">Press play to begin.</p>
@@ -65,7 +69,7 @@
   </div>
 
   <div class="desk" id="desk">
-    <div class="sheet-head"><h2>Settings</h2><button id="done" type="button">Done</button></div>
+    <div class="sheet-head"><h2>Settings</h2><button id="done" class="done-btn" type="button">Done</button></div>
     <div class="desk-body" id="deskBody">
     <details class="panel glass" id="panel-pace">
       <summary><h2>Breathing</h2><span class="sum" id="sum-pace"></span></summary>
@@ -83,17 +87,28 @@
       <summary><h2>Music</h2><span class="sum" id="sum-music"></span></summary>
       <div class="panel-body">
         <div class="chips" id="track" role="radiogroup" aria-label="Music"></div>
-        <div id="own" hidden>
-          <label class="file">Add audio files<input class="sr" id="file" type="file" accept="audio/*" multiple></label>
-          <ol id="files"></ol>
+        <div class="piece" id="classical" hidden>
+          <p class="piece-info"><span id="pieceTitle"></span><small><span id="pieceBy"></span> <span id="pieceTime"></span></small></p>
+          <div class="piece-controls">
+            <button id="prevPiece" class="round" type="button" aria-label="Previous piece">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M18 6.5v11a1 1 0 0 1-1.5.9l-8.6-5.5a1 1 0 0 1 0-1.8l8.6-5.5a1 1 0 0 1 1.5.9z"/></svg>
+            </button>
+            <span class="piece-count" id="pieceCount"></span>
+            <button id="nextPiece" class="round" type="button" aria-label="Next piece">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M6 6.5v11a1 1 0 0 0 1.5.9l8.6-5.5a1 1 0 0 0 0-1.8L7.5 5.6A1 1 0 0 0 6 6.5z"/></svg>
+            </button>
+            <button id="repeatOne" class="round repeat" type="button" aria-pressed="false" aria-label="Repeat this piece">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3l3 3-3 3M4 11V9.5A3.5 3.5 0 0 1 7.5 6H20M7 21l-3-3 3-3M20 13v1.5a3.5 3.5 0 0 1-3.5 3.5H4"/><text x="12" y="14.6" font-size="7.5" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">1</text></svg>
+            </button>
+          </div>
+          <label class="check" id="saveRow"><span>Save all for offline<small id="savedNote"></small></span><input id="saveAll" type="checkbox"></label>
         </div>
         <p class="note" id="trackNote"></p>
         <label class="check"><span>Put music in the room<small>Keeps the breath close and makes the music sound further away in your headphones.</small></span><input id="room" type="checkbox"></label>
       </div>
     </details>
 
-    <div class="pair">
-      <details class="panel glass" id="panel-look">
+    <details class="panel glass" id="panel-look">
         <summary><h2>Visuals</h2><span class="sum" id="sum-look"></span></summary>
         <div class="panel-body">
           <fieldset><legend>Scene</legend><div class="chips" id="visual"></div></fieldset>
@@ -102,18 +117,27 @@
           <label class="check"><span>Countdown</span><input id="countdown" type="checkbox"></label>
         </div>
       </details>
-
-      <details class="panel glass" id="panel-sess">
-        <summary><h2>Session</h2><span class="sum" id="sum-sess"></span></summary>
-        <div class="panel-body">
-          <fieldset><legend>Stop after</legend><div class="chips" id="limit"></div></fieldset>
-          <p class="note">Keep this page open. On a phone, sound may stop when the screen locks.</p>
-        </div>
-      </details>
-    </div>
     </div>
   </div>
 </main>
+
+<div class="scrim" id="scrim"></div>
+<section class="drawer" id="sessionSheet" role="dialog" aria-modal="true" aria-labelledby="sessionTitle">
+  <div class="drawer-head"><h2 id="sessionTitle">Session</h2><button id="sessionDone" class="done-btn" type="button">Done</button></div>
+  <div class="drawer-body">
+    <fieldset><legend>Stop after</legend><div class="chips" id="limit"></div></fieldset>
+    <div class="row" id="customRow" hidden><label for="customMin">Custom length <output id="customOut" for="customMin"></output></label>
+      <input id="customMin" type="range" min="5" max="240" step="5"></div>
+    <label class="check"><span>Swell and rest<small>Take turns between focus time and quiet breaks. Sound pauses while you rest, and a soft chime marks each change.</small></span><input id="intervals" type="checkbox"></label>
+    <div class="interval-rows" id="intervalRows" hidden>
+      <div class="row"><label for="swellMin">Swell <output id="swellOut" for="swellMin"></output></label>
+        <input id="swellMin" type="range" min="5" max="90" step="5"></div>
+      <div class="row"><label for="restMin">Rest <output id="restOut" for="restMin"></output></label>
+        <input id="restMin" type="range" min="1" max="30" step="1"></div>
+      <p class="note" id="intervalNote"></p>
+    </div>
+  </div>
+</section>
 <script src="app.js"></script>
 </body>
 </html>

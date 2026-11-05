@@ -1,7 +1,9 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const S = { bpm: 6, ratio: 'even', cue: 'bowl', breathVol: 35, musicVol: 55, room: true, ease: false, track: 'brown', limit: 0, visual: 'lava', palette: 'sunset', open: null, words: true, countdown: false };
+  const S = { bpm: 6, ratio: 'even', cue: 'bowl', breathVol: 35, musicVol: 55, room: true, ease: false, track: 'brown', limit: 0, visual: 'lava', palette: 'sunset', open: null, words: true, countdown: false, piece: 0, repeatOne: false, saveAll: false, customMin: 40, intervals: false, swellMin: 25, restMin: 5 };
   try { Object.assign(S, JSON.parse(localStorage.getItem('breathing-room') || '{}')); } catch (e) {}
+  /* "Audio files" was replaced by the classical mix. */
+  if (S.track === 'own') S.track = 'classical';
   const save = () => { try { localStorage.setItem('breathing-room', JSON.stringify(S)); } catch (e) {} };
 
   const RATIOS = { even: ['Even', .5], long: ['Longer out', .4], longest: ['Much longer out', 1 / 3] };
@@ -16,10 +18,11 @@
     fire: ['Fireplace', 'Generated on your device, so it works offline.'],
     ambient: ['Ambient', 'Slow chords generated on your device, so it works offline.'],
     keys: ['Soft keys', 'A simple generated sketch, not a finished recording.'],
-    own: ['Audio files', 'Add audio files from this device. They stay on this device and play on a loop.'],
+    classical: ['Classical mix', 'Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use.'],
     none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. On a phone, the side buttons change both, so use the Breath slider to balance them.']
   };
-  const LIMITS = { 0: 'No limit', 25: '25 min', 50: '50 min', 90: '90 min' };
+  const LIMITS = { 0: 'No limit', 25: '25 min', 50: '50 min', 90: '90 min', custom: 'Custom' };
+  const limitMin = () => S.limit === 'custom' ? S.customMin : +S.limit;
   const VISUALS = { lava: 'Lava lamp', bloom: 'Bloom', rings: 'Rings', aurora: 'Aurora', tide: 'Tide' };
   const PALETTES = {
     sunset: { name: 'Sunset', tint: '#ffb27a', ground: ['#2a1238', '#5a1f3f'], colors: ['#ff7a59', '#ffb347', '#e8487e'] },
@@ -45,7 +48,6 @@
   const midi = n => 440 * Math.pow(2, (n - 69) / 12);
   const gainCurve = v => (v / 100) ** 2;
   let ctx = null, A = null, running = false, sessionStart = 0, voice = null, wake = null;
-  const ownBuffers = [];
   let cueNodes = [];
 
   function loopBuffer(seconds, channels, make) {
@@ -97,7 +99,8 @@
     breathBus.connect(master); musicLevel.connect(master);
     musicBus.connect(dry); dry.connect(far); far.connect(musicLevel);
     musicBus.connect(hall); hall.connect(wet); wet.connect(musicLevel);
-    A = { master, breathBus, musicLevel, musicBus, dry, wet, far,
+    const alert = ctx.createGain(); alert.connect(limit);
+    A = { master, breathBus, musicLevel, musicBus, dry, wet, far, alert,
       cueNoise: loopBuffer(6, 1, white), brownBuf: null, whiteBuf: null };
     newCueBus();
     applyLevels();
@@ -105,7 +108,7 @@
     ctx.onstatechange = () => {
       if (!running) return;
       if (ctx.state === 'running') soundBack();
-      else { paused = true; tryResume(); }
+      else { paused = true; if (owner) player.pause(); tryResume(); }
     };
   }
 
@@ -123,8 +126,9 @@
     paused = false; showResume(false);
     /* The audio clock stops while paused, so the breath carries on from where it was. Replan the breath sounds and fade in gently. */
     const t = ctx.currentTime;
-    A.master.gain.cancelScheduledValues(t); A.master.gain.setValueAtTime(0, t); A.master.gain.linearRampToValueAtTime(1, t + .8);
+    A.master.gain.cancelScheduledValues(t); A.master.gain.setValueAtTime(0, t); A.master.gain.linearRampToValueAtTime(segment === 'rest' ? 0 : 1, t + .8);
     switchCue();
+    if (owner && segment !== 'rest') player.play().catch(() => {});
     lockScreen();
   }
   function showResume(show) { $('resume').hidden = !show; }
@@ -315,14 +319,12 @@
           next += 6;
         }
       };
-    } else if (kind === 'own' && ownBuffers.length) {
-      let i = 0;
-      const play = () => {
-        if (v.stopped || !ownBuffers.length) return;
-        const s = ctx.createBufferSource(); s.buffer = ownBuffers[i++ % ownBuffers.length].buffer;
-        s.connect(out); s.onended = play; s.start(); v.sources = [s];
-      };
-      play();
+    } else if (kind === 'classical') {
+      /* The recordings stream from an audio element, so long pieces never sit in memory, and still pass through the music volume and room effect. */
+      const src = playerSource(); src.connect(out);
+      v.classical = true; owner = v;
+      v.end = () => { try { src.disconnect(out); } catch (e) {} if (owner === v) { owner = null; player.pause(); } };
+      playPiece();
     }
     return v;
   }
@@ -330,8 +332,111 @@
     if (!v) return;
     v.stopped = true; const t = ctx.currentTime;
     v.out.gain.cancelScheduledValues(t); v.out.gain.setTargetAtTime(0, t, .25);
-    setTimeout(() => { v.sources.forEach(s => { s.onended = null; try { s.stop(); } catch (e) {} }); v.out.disconnect(); }, 1200);
+    setTimeout(() => { v.sources.forEach(s => { s.onended = null; try { s.stop(); } catch (e) {} }); if (v.end) v.end(); v.out.disconnect(); }, 1200);
   }
+
+  /* Classical mix: public domain recordings listed in classical.json. The set repeats by default, and "Repeat this piece" loops one. */
+  const player = new Audio(); player.preload = 'metadata';
+  let pieces = [], owner = null, failures = 0;
+  fetch('classical.json').then(r => r.json()).then(list => { pieces = list; cuePiece(); paint(); readSaved().then(() => setTimeout(keepAll, 4000)); }).catch(() => {});
+  function playerSource() { if (!A.player) A.player = ctx.createMediaElementSource(player); return A.player; }
+  const piece = () => pieces[S.piece] || pieces[0];
+  function cuePiece() {
+    if (!pieces.length) return;
+    S.piece = ((+S.piece || 0) % pieces.length + pieces.length) % pieces.length;
+    if (S.track !== 'classical') return;
+    const url = new URL(piece().file, location.href).href;
+    if (player.src !== url) player.src = url;
+    player.loop = !!S.repeatOne;
+  }
+  function playPiece() {
+    cuePiece();
+    if (owner && running) player.play().catch(() => {});
+  }
+  function skipPiece(step) {
+    if (!pieces.length) return;
+    S.piece = playableFrom(+S.piece + step, step || 1); failures = 0;
+    const live = owner && running && voice === owner;
+    if (!live) { cuePiece(); save(); paintPiece(); return; }
+    /* A short fade, so skipping never cuts off mid-note. */
+    const g = owner.out.gain, t = ctx.currentTime;
+    g.cancelScheduledValues(t); g.setTargetAtTime(0, t, .06);
+    setTimeout(() => { playPiece(); save(); paintPiece(); g.setTargetAtTime(1, ctx.currentTime, .12); }, 300);
+  }
+  player.addEventListener('ended', () => skipPiece(1));
+  player.addEventListener('playing', () => { failures = 0; });
+  player.addEventListener('error', () => {
+    if (!owner || !running) return;
+    if (++failures >= pieces.length || (!navigator.onLine && !saved.size)) {
+      $('status').textContent = navigator.onLine ? "The classical music couldn't load. Try another sound." : 'Connect to the internet to play the classical mix, or turn on Save all for offline next time.';
+      return;
+    }
+    skipPiece(1);
+  });
+  player.addEventListener('loadedmetadata', () => paintPiece());
+  const clockText = s => isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '';
+  function paintPiece() {
+    if (!pieces.length) return;
+    const p = piece();
+    $('pieceTitle').textContent = `${p.composer}: ${p.title}`;
+    $('pieceBy').textContent = p.performer;
+    $('pieceCount').textContent = `${S.piece + 1} of ${pieces.length}`;
+    const time = player.duration ? `${clockText(player.currentTime)} / ${clockText(player.duration)}` : '';
+    if ($('pieceTime').textContent !== time) $('pieceTime').textContent = time;
+    $('repeatOne').setAttribute('aria-pressed', String(!!S.repeatOne));
+  }
+  /* Offline: the service worker plays any piece kept in the "swellotic-music" store. Pieces are kept after 30 seconds of listening,
+     or all at once with "Save all for offline". Without a connection, only kept pieces are played. */
+  const MUSIC = 'swellotic-music', canKeep = 'caches' in window && 'serviceWorker' in navigator;
+  let saved = new Set(), queue = Promise.resolve(), queued = new Set(), keeping = 0, round = 0;
+  const urlOf = i => new URL(pieces[i].file, location.href).href;
+  function playableFrom(i, step) {
+    const n = pieces.length; i = ((i % n) + n) % n;
+    if (navigator.onLine || !saved.size) return i;
+    for (let k = 0; k < n; k++, i = ((i + step) % n + n) % n) if (saved.has(urlOf(i))) return i;
+    return i;
+  }
+  async function readSaved() {
+    if (!canKeep) return;
+    try { saved = new Set((await (await caches.open(MUSIC)).keys()).map(r => r.url)); } catch (e) {}
+    paintSaved();
+  }
+  function keep(url) {
+    if (!canKeep || saved.has(url) || queued.has(url)) return;
+    queued.add(url); keeping++; paintSaved();
+    const mine = round;
+    queue = queue.then(async () => {
+      try {
+        if (!navigator.onLine || mine !== round) return;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (res.status === 200 && mine === round) { await (await caches.open(MUSIC)).put(url, res); saved.add(url); }
+      } catch (e) {} finally { if (mine === round) { queued.delete(url); keeping--; } paintSaved(); }
+    });
+  }
+  function keepAll() { if (S.saveAll && navigator.onLine) pieces.forEach((_, i) => keep(urlOf(i))); }
+  function paintSaved() {
+    if (!pieces.length) return;
+    $('saveRow').hidden = !canKeep; $('saveAll').checked = !!S.saveAll;
+    const have = pieces.filter((_, i) => saved.has(urlOf(i))).length;
+    $('savedNote').textContent = `${have} of ${pieces.length} pieces saved on this device.` + (keeping ? ` Saving ${have + 1}…` : '');
+  }
+  player.addEventListener('timeupdate', () => { if (player.currentTime > 30 && owner) keep(player.src); });
+  $('saveAll').addEventListener('change', async e => {
+    S.saveAll = e.target.checked; save();
+    if (S.saveAll) {
+      /* Ask the browser not to clear the saved music when space runs low. */
+      try { await navigator.storage.persist(); } catch (err) {}
+      keepAll();
+    } else {
+      /* Turning it off frees the space. Pieces you listen to are kept again as you hear them. */
+      round++; queued.clear(); keeping = 0; paintSaved();
+      await queue;
+      try { await caches.delete(MUSIC); } catch (err) {}
+      saved = new Set(); paintSaved();
+    }
+  });
+  addEventListener('online', keepAll);
+
   function refreshVoice() {
     if (!running) return;
     stopVoice(voice); voice = startVoice(S.track);
@@ -370,9 +475,45 @@
     schedule();
     if (!running) return;
     if (voice) voice.tick(ctx.currentTime, ctx.currentTime + 5);
-    const elapsed = ctx.currentTime - sessionStart;
-    $('clock').textContent = fmt(elapsed);
-    if (S.limit && elapsed >= S.limit * 60) stop('Session finished.');
+    if (S.track === 'classical') paintPiece();
+    const elapsed = ctx.currentTime - sessionStart, seg = segmentAt(elapsed);
+    if (seg.kind !== segment) enterSegment(seg.kind);
+    $('clock').textContent = S.intervals ? `${seg.kind === 'rest' ? 'Rest' : 'Swell'} ${fmt(seg.left)}` : fmt(elapsed);
+    const lim = limitMin();
+    if (lim && elapsed >= lim * 60) stop('Session finished.');
+  }
+
+  /* Swell and rest: focus time and quiet breaks take turns on the session clock. Settings changed mid-session apply straight away. */
+  let segment = 'swell';
+  function segmentAt(elapsed) {
+    if (!S.intervals) return { kind: 'swell', left: 0 };
+    const swell = S.swellMin * 60, cycle = swell + S.restMin * 60, pos = elapsed % cycle;
+    return pos < swell ? { kind: 'swell', left: swell - pos } : { kind: 'rest', left: cycle - pos };
+  }
+  function enterSegment(kind) {
+    segment = kind;
+    const t = ctx.currentTime, resting = kind === 'rest';
+    ring(resting ? 62 : 69, t + .05);
+    /* Sound fades out gently for a rest, after the chime has started, and fades back in for the next swell. */
+    A.master.gain.cancelScheduledValues(t);
+    A.master.gain.setTargetAtTime(resting ? 0 : 1, t + (resting ? .6 : .2), resting ? .7 : .5);
+    if (owner) {
+      if (resting) setTimeout(() => { if (segment === 'rest' && owner) player.pause(); }, 3500);
+      else player.play().catch(() => {});
+    }
+    document.body.classList.toggle('resting', resting);
+    $('status').textContent = resting ? 'Time for a break. The next swell starts by itself.' : '';
+  }
+  /* A soft two-note chime on its own path, so it's heard even while the rest has faded everything else. */
+  function ring(note, at) {
+    const level = .1 + .25 * gainCurve(Math.max(S.breathVol, 30));
+    [[0, 1], [.35, .8]].forEach(([delay, amp], i) => [[1, 1], [2.76, .12]].forEach(([ratio, part]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(), s = at + delay;
+      o.frequency.value = midi(note + (i ? 7 : 0)) * ratio; o.connect(g); g.connect(A.alert);
+      g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(level * amp * part, s + .02);
+      g.gain.exponentialRampToValueAtTime(.0003, s + 3.5);
+      o.start(s); o.stop(s + 3.6);
+    }));
   }
 
   function setGo() { $('go').classList.toggle('playing', running); $('go').setAttribute('aria-label', running ? 'Stop' : 'Start'); showUpdate(); }
@@ -380,22 +521,25 @@
 
   async function start() {
     ensureAudio();
+    /* Phones only let audio start straight from a tap, so the piece starts here, before anything waits. It stays silent until it's connected. */
+    if (S.track === 'classical' && pieces.length) { S.piece = playableFrom(+S.piece, 1); playerSource(); cuePiece(); player.play().catch(() => {}); }
     setSession();
     await ctx.resume();
     if (S.cue === 'words') await loadClips();
-    running = true; paused = false; showResume(false); sessionStart = ctx.currentTime;
+    running = true; paused = false; showResume(false); sessionStart = ctx.currentTime; segment = 'swell';
     phases = []; nextStart = ctx.currentTime + .3; cueNodes = [];
     A.master.gain.cancelScheduledValues(sessionStart);
     A.master.gain.setValueAtTime(0, sessionStart); A.master.gain.linearRampToValueAtTime(1, sessionStart + .8);
     applyLevels(); voice = startVoice(S.track); schedule(); voice.tick(ctx.currentTime, ctx.currentTime + 5);
     setGo(); $('clock').textContent = fmt(0); $('clock').hidden = false;
-    $('status').textContent = S.track === 'own' && !ownBuffers.length ? 'Add audio files to hear your music.' : '';
+    $('status').textContent = '';
     lockScreen();
   }
   function stop(message) {
     const t = ctx.currentTime;
     A.master.gain.cancelScheduledValues(t); A.master.gain.setTargetAtTime(0, t, .15);
     stopVoice(voice); voice = null; running = false; paused = false; showResume(false);
+    segment = 'swell'; document.body.classList.remove('resting');
     const nodes = cueNodes; cueNodes = [];
     setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch (e) {} }); if (!running) ctx.suspend(); }, 700);
     setGo(); $('clock').hidden = true;
@@ -499,7 +643,7 @@
     if (p) {
       const x = (t - p.start) / (p.end - p.start), eased = .5 - .5 * Math.cos(Math.PI * x);
       level = p.type === 'in' ? eased : 1 - eased;
-      const word = p.type === 'in' ? 'In' : 'Out';
+      const word = running && segment === 'rest' ? 'Rest' : p.type === 'in' ? 'In' : 'Out';
       if ($('word').textContent !== word) $('word').textContent = word;
       const left = Math.ceil(p.end - t), info = `${left} s left  ·  ${p.bpm.toFixed(1)} breaths/min`;
       if ($('timing').textContent !== info) $('timing').textContent = info;
@@ -528,11 +672,17 @@
     $('sum-pace').textContent = `${S.bpm} a minute, ${CUES[S.cue]}`;
     $('sum-music').textContent = TRACKS[S.track][0];
     $('sum-look').textContent = `${VISUALS[S.visual]}, ${PALETTES[S.palette].name}`;
-    $('sum-sess').textContent = S.limit ? `${S.limit} minutes` : 'No time limit';
+    const lim = limitMin();
+    $('sessionSum').textContent = S.intervals ? `Swell ${S.swellMin} min · Rest ${S.restMin} min${lim ? ` · ${lim} min total` : ''}` : lim ? `${lim} min session` : 'No time limit';
+    $('customMin').value = S.customMin; $('customOut').textContent = `${S.customMin} min`; $('customRow').hidden = S.limit !== 'custom';
+    $('intervals').checked = S.intervals; $('intervalRows').hidden = !S.intervals;
+    $('swellMin').value = S.swellMin; $('swellOut').textContent = `${S.swellMin} min`;
+    $('restMin').value = S.restMin; $('restOut').textContent = `${S.restMin} min`;
+    $('intervalNote').textContent = lim ? `Swell and rest take turns until the session ends after ${lim} minutes.` : 'Swell and rest take turns until you press stop.';
     $('word').hidden = !S.words; $('timing').hidden = !S.countdown;
     document.documentElement.style.setProperty('--tint', PALETTES[S.palette].tint);
-    [['breathVol', 0, 100], ['musicVol', 0, 100], ['bpm', 2, 12]].forEach(([id, lo, hi]) => $(id).style.setProperty('--v', ($(id).value - lo) / (hi - lo) * 100 + '%'));
-    $('own').hidden = S.track !== 'own'; $('trackNote').textContent = TRACKS[S.track][1];
+    [['breathVol', 0, 100], ['musicVol', 0, 100], ['bpm', 2, 12], ['customMin', 5, 240], ['swellMin', 5, 90], ['restMin', 1, 30]].forEach(([id, lo, hi]) => $(id).style.setProperty('--v', ($(id).value - lo) / (hi - lo) * 100 + '%'));
+    $('classical').hidden = S.track !== 'classical'; paintPiece(); paintSaved(); $('trackNote').textContent = TRACKS[S.track][1];
   }
   const bind = (id, key, cast, after) => $(id).addEventListener('input', e => {
     S[key] = cast(e.target); save(); paint(); applyLevels(); if (after) after();
@@ -544,28 +694,25 @@
   bind('ease', 'ease', e => e.checked);
   bind('words', 'words', e => e.checked);
   bind('countdown', 'countdown', e => e.checked);
-  chips($('limit'), 'limit', LIMITS, 'limit', () => { S.limit = +S.limit; save(); paint(); });
+  bind('customMin', 'customMin', e => +e.value);
+  bind('intervals', 'intervals', e => e.checked);
+  bind('swellMin', 'swellMin', e => +e.value);
+  bind('restMin', 'restMin', e => +e.value);
+  chips($('limit'), 'limit', LIMITS, 'limit', () => { if (S.limit !== 'custom') S.limit = +S.limit; save(); paint(); });
   chips($('ratio'), 'ratio', RATIOS, 'ratio', () => { paint(); resetPreview(); });
   if (!VOICE_CLIPS) { delete CUES.words; if (S.cue === 'words') S.cue = 'bowl'; }
   chips($('cue'), 'cue', CUES, 'cue', () => { if (S.cue === 'words' && ctx) loadClips().then(switchCue); else switchCue(); paint(); });
-  chips($('track'), 'track', TRACKS, 'track', () => { setSession(); paint(); refreshVoice(); });
+  /* On iPhone and iPad, a web app can't keep playing in the background while mixing with another app, so "My music app" stops
+     whenever you switch to it. Hide it there until there's a native app. */
+  const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (appleMobile) { delete TRACKS.none; if (S.track === 'none') S.track = 'classical'; }
+  chips($('track'), 'track', TRACKS, 'track', () => { setSession(); cuePiece(); paint(); refreshVoice(); });
   chips($('visual'), 'visual', VISUALS, 'visual', paint);
   chips($('palette'), 'palette', Object.fromEntries(Object.entries(PALETTES).map(([k, v]) => [k, v.name])), 'palette', paint);
 
-  $('file').addEventListener('change', async e => {
-    ensureAudio();
-    const list = [...e.target.files]; e.target.value = '';
-    for (const f of list) {
-      $('status').textContent = `Loading ${f.name}…`;
-      try {
-        const buffer = await ctx.decodeAudioData(await f.arrayBuffer());
-        ownBuffers.push({ name: f.name, buffer });
-        const li = document.createElement('li'); li.textContent = f.name; $('files').append(li);
-      } catch (err) { $('status').textContent = `${f.name} could not be read. Try an MP3, M4A or WAV file.`; return; }
-    }
-    $('status').textContent = '';
-    if (running && S.track === 'own') refreshVoice();
-  });
+  $('prevPiece').addEventListener('click', () => skipPiece(-1));
+  $('nextPiece').addEventListener('click', () => skipPiece(1));
+  $('repeatOne').addEventListener('click', () => { S.repeatOne = !S.repeatOne; player.loop = S.repeatOne; save(); paintPiece(); });
   $('go').addEventListener('click', () => running ? stop() : start().catch(() => {
     running = false; $('status').textContent = 'Sound could not start. Reload the page and press Start again.';
   }));
@@ -574,7 +721,20 @@
   }
   $('quiet').addEventListener('click', () => setSheet($('app').classList.contains('quiet')));
   $('done').addEventListener('click', () => setSheet(false));
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && innerWidth < 900) setSheet(false); });
+  /* Session drawer. The rest of the app is inert while it's open, and focus returns to the button when it closes. */
+  function setDrawer(open) {
+    $('sessionSheet').classList.toggle('open', open); $('scrim').classList.toggle('open', open);
+    $('app').inert = open; $('sessionBtn').setAttribute('aria-expanded', String(open));
+    if (open) setTimeout(() => $('sessionDone').focus(), 50); else $('sessionBtn').focus();
+  }
+  const drawerOpen = () => $('sessionSheet').classList.contains('open');
+  $('sessionBtn').addEventListener('click', () => setDrawer(true));
+  $('sessionDone').addEventListener('click', () => setDrawer(false));
+  $('scrim').addEventListener('click', () => setDrawer(false));
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (drawerOpen()) setDrawer(false); else if (innerWidth < 900) setSheet(false);
+  });
   const backOnScreen = () => { if (running && !document.hidden) { lockScreen(); tryResume(); } };
   document.addEventListener('visibilitychange', backOnScreen);
   addEventListener('pageshow', backOnScreen);

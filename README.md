@@ -11,7 +11,9 @@ A breathing guide with music or ambient sound, and a separate volume for each. I
 - **Breathing pace:** 2 to 12 breaths a minute, with even or longer out-breaths, and an option to slow down gradually
 - **Breath sounds:** singing bowl, gong, soft piano, wooden marimba, soft hum, chime, ocean or silent, each lasting the whole breath. Spoken words return once recorded clips are added.
 - **Background sound:** brown noise, pink noise, rain, beach, stream, wind, fireplace, ambient chords or soft keys, all generated in the browser
-- **Your own audio:** add audio files, or play Spotify, Apple Music or another app alongside it
+- **Classical mix:** 20 calm public domain recordings made for Musopen, with previous, next and repeat-one controls. The set repeats by default. Pieces you listen to are saved for offline use, or you can save the whole set.
+- **Sessions:** a session button under the breathing word opens a drawer with a time limit, a custom length, and swell and rest, which takes turns between focus time and quiet breaks.
+- **Your own music app:** play Spotify, Apple Music or another app alongside it. This is hidden on iPhone and iPad, because the breaths stop whenever you switch apps there.
 - **Separate volumes:** breath and music each have their own slider
 - **Music in the room:** keeps the breath close and makes the music sound further away in headphones
 - **Visuals:** lava lamp, bloom, rings, aurora or tide, in six colour palettes
@@ -22,6 +24,12 @@ There's no build step or dependency to install. You need a local web server beca
 
 ```bash
 python3 -m http.server 8000
+```
+
+The classical recordings are in `audio/classical/`, about 200MB in total. If `classical.json` changes, this downloads any new pieces from Wikimedia Commons:
+
+```bash
+node tools/fetch-classical.mjs
 ```
 
 Then open <http://localhost:8000>. Sound starts after you press play.
@@ -43,6 +51,8 @@ Bump `VERSION` in `sw.js` with every release. Without that, people who have alre
 | `manifest.webmanifest` | App name, colours and icons for installing |
 | `icons/` | App icons, drawn in `icon.svg` |
 | `fonts/` | Bundled fonts and their licences |
+| `classical.json` | The Classical mix: each piece's file, title, performer and Commons source |
+| `tools/fetch-classical.mjs` | Downloads the Classical mix recordings into `audio/classical/` |
 | `tools/make-voice.mjs` | Makes the spoken words clips with Azure AI Speech. Run once, not part of the app |
 | `CLAUDE.md` | Project rules and context for Claude Code |
 | `docs/ROADMAP.md` | Work needed to make this a publishable web app |
