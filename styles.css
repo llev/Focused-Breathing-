@@ -22,7 +22,10 @@ img { max-width: 100%; }
 }
 *, *::before, *::after { box-sizing: border-box; }
 /* The app fills the visible screen. --app-height and --short come from fitScreen in app.js, because iPhone CSS heights can
-   include space under Safari's toolbar, or come up one status bar short in the installed app. */
+   include space under Safari's toolbar, or come up one status bar short in the installed app.
+   Sheets fixed to the bottom already reach the real bottom there, so they use bottom: 0. Moving them down by --short hid
+   their last 62 points off the screen (Lloyd's iPhone, 6 November 2026). The scrim and launch screen still extend by it,
+   which is harmless. */
 html { height: 100%; height: 100dvh; height: var(--app-height, 100dvh); overflow: hidden; }
 body { height: 100%; overflow: hidden; }
 body {
@@ -69,7 +72,7 @@ h1 { margin: 0; font: 600 1.0625rem/1.2 var(--body); letter-spacing: -.01em; tex
 .scrim { position: fixed; inset: 0; bottom: calc(-1 * var(--short, 0px)); z-index: 11; background: rgba(8, 6, 14, .45); opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
 .scrim.open { opacity: 1; visibility: visible; }
 .drawer {
-  position: fixed; z-index: 12; left: 0; right: 0; bottom: calc(-1 * var(--short, 0px)); max-width: 520px; max-height: 88%; margin-inline: auto;
+  position: fixed; z-index: 12; left: 0; right: 0; bottom: 0; max-width: 520px; max-height: 88%; margin-inline: auto;
   display: flex; flex-direction: column; overflow: hidden; border-radius: 28px 28px 0 0;
   background: var(--sheet); border: 1px solid var(--hair); border-bottom: 0; box-shadow: 0 -16px 50px rgba(0, 0, 0, .4);
   -webkit-backdrop-filter: blur(34px) saturate(170%); backdrop-filter: blur(34px) saturate(170%);
@@ -161,7 +164,9 @@ legend { padding: 0; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
 }
 .chips input:checked + span { background: var(--tint); color: var(--on-tint); font-weight: 600; }
 .chips.seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 3px; border-radius: 14px; background: var(--well); }
-.chips.seg span { background: transparent; min-height: 38px; padding: 5px 6px; border-radius: 11px; font-size: .875rem; }
+.chips.seg label { display: flex; }
+/* Every option fills the switch's full height, so the chosen one stays the same size when another option's label wraps. */
+.chips.seg span { flex: 1; background: transparent; min-height: 38px; padding: 5px 6px; border-radius: 11px; font-size: .875rem; }
 .chips.seg input:checked + span { background: #fff; box-shadow: 0 2px 7px rgba(0, 0, 0, .25); }
 .check { display: flex; gap: 12px; align-items: center; justify-content: space-between; cursor: pointer; font-weight: 500; }
 .check small { display: block; color: var(--soft); font-size: .875rem; font-weight: 400; }
@@ -197,7 +202,7 @@ legend { padding: 0; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
 @media (max-width: 899px) {
   .app, .app.quiet { grid-template-columns: minmax(0, 1fr); }
   .desk, .app.quiet .desk {
-    display: flex; position: fixed; z-index: 5; left: 0; right: 0; bottom: calc(-1 * var(--short, 0px)); max-width: 620px; margin-inline: auto; max-height: 84%;
+    display: flex; position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; max-width: 620px; margin-inline: auto; max-height: 84%;
     overflow: hidden; border-radius: 28px 28px 0 0; background: var(--sheet); border: 1px solid var(--hair); border-bottom: 0;
     -webkit-backdrop-filter: blur(34px) saturate(170%); backdrop-filter: blur(34px) saturate(170%);
     box-shadow: 0 -16px 50px rgba(0, 0, 0, .4); transition: transform .32s cubic-bezier(.2, .9, .3, 1), visibility .32s;
