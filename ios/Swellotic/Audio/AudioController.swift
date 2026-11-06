@@ -245,10 +245,28 @@ final class AudioController {
 
     var engineRunning: Bool { engine.isRunning }
 
+    /// True while sound is held after headphones disconnect. Nothing restarts it by itself, so it never plays out loud
+    /// by surprise; only the person can, with "Tap to resume" or the lock screen.
+    private(set) var held = false
+
+    /// Pauses the session where it is. The breath, the session clock, any swell or rest and the classical piece all stop
+    /// together, because they run on the audio clock, and carry on from the same moment on resume.
+    private func hold() {
+        guard isPlaying, !held else { return }
+        held = true
+        _ = piecePosition()
+        pieceRun += 1
+        player.stop()
+        stream = nil
+        engine.pause()
+        updateNowPlaying()
+    }
+
     /// Restarts sound after the phone paused it. The breath carries on from where it stopped and fades in.
     @discardableResult
     func resume() -> Bool {
         guard isPlaying else { return false }
+        held = false
         do {
             configureSession()
             try AVAudioSession.sharedInstance().setActive(true)
@@ -463,7 +481,7 @@ final class AudioController {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.built = false
-                if self.isPlaying {
+                if self.isPlaying && !self.held {
                     self.build()
                     if !self.resume() { self.onEvent?(.needsTap) }
                 }
@@ -477,6 +495,7 @@ final class AudioController {
         case .began:
             onEvent?(.paused)
         case .ended:
+            if held { return }
             if !(shouldResume && resume()) { onEvent?(.needsTap) }
         @unknown default:
             break
@@ -486,7 +505,10 @@ final class AudioController {
     private func routeChanged(_ reason: AVAudioSession.RouteChangeReason?) {
         updateLatency()
         // Apple's guidance: when headphones are unplugged, pause rather than play out loud.
-        if reason == .oldDeviceUnavailable && isPlaying { onEvent?(.headphonesGone) }
+        if reason == .oldDeviceUnavailable && isPlaying {
+            hold()
+            onEvent?(.headphonesGone)
+        }
     }
 
     /// The output changed, for example to Bluetooth headphones. The engine stops itself, so start it again.
@@ -495,8 +517,15 @@ final class AudioController {
             if outputSampleRate() != format.sampleRate { built = false }
             return
         }
-        if outputSampleRate() != format.sampleRate { build() }
-        if !resume() { onEvent?(.needsTap) }
+        if held { return }
+        // This also fires when headphones disconnect, sometimes just before the route change that holds the sound.
+        // Wait a moment, so sound never restarts through the phone's speaker.
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard let self, self.isPlaying, !self.held, !self.engine.isRunning else { return }
+            if self.outputSampleRate() != self.format.sampleRate { self.build() }
+            if !self.resume() { self.onEvent?(.needsTap) }
+        }
     }
 
     private func setUpRemoteCommands() {
@@ -525,7 +554,7 @@ final class AudioController {
             MPMediaItemPropertyTitle: nowPlayingTitle,
             MPMediaItemPropertyArtist: nowPlayingArtist,
             MPNowPlayingInfoPropertyIsLiveStream: true,
-            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying && !held ? 1.0 : 0.0,
         ]
         if let artwork = Self.makeArtwork() { info[MPMediaItemPropertyArtwork] = artwork }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
