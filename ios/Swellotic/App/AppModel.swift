@@ -81,6 +81,11 @@ final class AppModel: ObservableObject {
 
     func toggle() { running ? stop() : start() }
 
+    /// The lock screen's play and pause. Play carries on a held session; pause ends it, as the play button does.
+    private func remoteToggle() {
+        if running && audio.held { tapToResume() } else { toggle() }
+    }
+
     func start() {
         guard !running else { return }
         do {
@@ -116,6 +121,7 @@ final class AppModel: ObservableObject {
     func tapToResume() {
         if audio.resume() {
             showResume = false
+            if !resting { status = "" }
         } else {
             status = "Sound couldn't restart. Press stop, then play."
         }
@@ -166,14 +172,17 @@ final class AppModel: ObservableObject {
         case .resumed:
             showResume = false
             resumeCheck?.cancel()
+            if !resting { status = "" }
         case .needsTap:
             if running { showResume = true }
         case .headphonesGone:
-            stop(message: "Headphones disconnected, so Swellotic stopped.")
+            // Paused, not stopped: the session, swell or rest and classical piece carry on from here.
+            status = "Headphones disconnected."
+            showResume = true
         case .remoteToggle:
-            toggle()
+            remoteToggle()
         case .remotePlay:
-            start()
+            if running && audio.held { tapToResume() } else { start() }
         case .remotePause:
             stop()
         case .pieceChanged(let index):
@@ -185,7 +194,7 @@ final class AppModel: ObservableObject {
 
     /// When Swellotic comes back on screen, restart the sound if the phone paused it.
     func scenePhaseChanged(_ phase: ScenePhase) {
-        guard phase == .active, running, !audio.engineRunning else { return }
+        guard phase == .active, running, !audio.engineRunning, !audio.held else { return }
         if audio.resume() { return }
         resumeCheck?.cancel()
         resumeCheck = Task { [weak self] in
