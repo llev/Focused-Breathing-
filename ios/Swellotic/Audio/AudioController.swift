@@ -372,9 +372,10 @@ final class AudioController {
         let last = s.ended
         if last { s.markedEnd = true }
         player.scheduleBuffer(buffer, completionCallbackType: last ? .dataPlayedBack : .dataConsumed) { [weak self] _ in
+            // Look the stream up again here rather than carrying it across threads. A changed run means it's been replaced.
             Task { @MainActor in
                 guard let self, run == self.pieceRun else { return }
-                if last { self.pieceEnded() } else { self.scheduleChunk(s, run: run) }
+                if last { self.pieceEnded() } else if let current = self.stream { self.scheduleChunk(current, run: run) }
             }
         }
     }
