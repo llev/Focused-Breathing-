@@ -1,0 +1,6 @@
+# Cloudflare Pages response headers.
+# no-transform stops Cloudflare changing the pages on the way out: it otherwise adds its Web Analytics script from
+# static.cloudflareinsights.com, which breaks the rule that the app only talks to its own site, and rewrites email
+# addresses with a script of its own. The rest keeps every file checked for updates, as before.
+/*
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
