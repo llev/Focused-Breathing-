@@ -142,7 +142,7 @@ Decided 5 November 2026: anonymous counts in the web app, with PostHog's EU serv
 - [ ] Add automated browser tests for start and stop, every sound and visual, the sliders, and saved settings.
 - [ ] Run a full accessibility audit, including screen readers, keyboard use and text contrast over the moving scenes.
 - [ ] Check performance on an older phone, especially Lava lamp.
-- [x] Add a privacy notice covering local settings, what the host logs and the anonymous counts: `privacy.html`, linked from Settings in both apps. Lloyd to check the wording, and add his full name or business name if he wants it there.
+- [x] Add a privacy notice covering local settings, what the host logs and the anonymous counts: `privacy.html`, linked from Settings in both apps. It names Lloyd Evans as the maker, at his request on 6 November 2026.
 - [x] Add an About page with the health note, and credit any third-party fonts: `support.html`, called Help, which also credits Musopen and the performers. It doubles as the App Store support page.
 - [ ] Lloyd: set up Cloudflare Email Routing so `hello@swellotic.com`, the contact address on both pages, forwards to his own email.
 - [ ] Check licences for bundled fonts.
