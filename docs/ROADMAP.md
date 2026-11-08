@@ -187,6 +187,8 @@ A native SwiftUI app in `ios/`, started 2026-11-05. See `ios/README.md` for how 
 - [ ] Set up an Apple Developer account for TestFlight.
 - [ ] App Store listing, privacy details and screenshots. Review all copy against the health claim rules. Privacy policy URL: `https://swellotic.com/privacy.html`. Support URL: `https://swellotic.com/support.html`. Privacy label: Data Not Collected, since the iPhone app sends no counts.
 - [ ] Once App Store Connect gives the app its ID, add Apple's Smart App Banner to `index.html`, where a comment marks the spot, so iPhone visitors are offered the app.
+- [x] iPad and Mac layout: Settings as a side panel, Session as a popover by its button. Both stay sheets on iPhone.
+- [ ] Lloyd to check the iPad layout on his iPad, including turning it and Split View.
 - [ ] Later: show what's playing in Apple Music, Apple Watch, widgets and Focus mode.
 
 ### iOS decisions
@@ -224,3 +226,4 @@ Whether a breathing cue helps or distracts during focused work is still an open 
 - Using `ambient` audio on iPhone may mean the silent switch mutes the breaths.
 - Spotify and Apple Music volumes can't be controlled from this app. On a phone, the side buttons change everything together.
 - Direct Spotify integration is out: its developer terms have barred mixing Spotify content with other audio. Check the current terms before revisiting this.
+- **iPad and Mac panels (8 November 2026):** half-height sheets floated mid-screen on iPad, cut off their content and covered the player bar. Settings is now a side panel (SwiftUI's inspector), so the scene and player bar stay in view while changing things, as in the web app on wide screens. Session is a popover from its button. On iPhone, and in narrow Split View, both become sheets from the bottom. The same layout carries over to a Mac build.
