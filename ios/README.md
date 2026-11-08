@@ -33,6 +33,7 @@ Claude can't hear the app, so these need a person and a real iPhone. Record resu
 - Classical mix, once swellotic.com is live: first play, skipping, repeat-one, a rest mid-piece, and playing with no connection after "Save all for offline".
 - An Interval session with the screen locked: do the chimes and rests arrive on time?
 - How every breath sound and background sound compares with the web version.
+- Sounds: each mood starts within a second or two of choosing it the first time, Night storm's thunder arrives, Winter park's thrush sings, and Adjust sound's sliders change the sound while it plays. Memory should stay reasonable after trying every mood.
 
 ## How it's built
 

@@ -61,8 +61,9 @@ final class SynthTests: XCTestCase {
     func testEveryTrackIsSafeAndAudible() {
         for track in MusicTrack.allCases {
             let engine = makeEngine(sound: .silent, track: track)
+            if track.isLearned { publishTestSounds(engine.controls.sounds) }
             engine.controls.begin()
-            let out = render(engine, seconds: track == .ambient || track == .keys ? 15 : 6).music
+            let out = render(engine, seconds: track == .ambient || track == .keys || track == .park ? 15 : 6).music
             XCTAssertTrue(out.allSatisfy { $0.isFinite }, "\(track) made an invalid sample")
             XCTAssertLessThan(peak(out[...]), 2, "\(track) is far too loud before the limiter")
             if track.isGenerated {

@@ -44,6 +44,32 @@ enum Palette: Int, CaseIterable, Codable {
     }
 }
 
+/// Adjust sound: how far away a sound is, its tone, three frequency bands and its Mix layers.
+/// Distance runs 0 to 100, Tone −100 (warm) to 100 (bright), the bands −12 to 12 dB, and layers 0 to 100 with 50 as designed.
+struct SoundAdjust: Codable, Equatable {
+    var distance = 0.0
+    var tone = 0.0
+    var low = 0.0, middle = 0.0, high = 0.0
+    var layers: [String: Double] = [:]
+
+    func layer(_ l: SoundLayer) -> Double { layers[l.rawValue] ?? 50 }
+
+    /// How each sound starts, matching app.js.
+    static func designed(_ track: MusicTrack) -> SoundAdjust {
+        var a = SoundAdjust()
+        switch track {
+        case .window: a.tone = -75
+        case .storm: a.distance = 20; a.tone = -15; a.layers = [SoundLayer.wind.rawValue: 30]
+        case .park: a.distance = 15; a.layers = [SoundLayer.park.rawValue: 38, SoundLayer.birdsong.rawValue: 62]
+        case .hill: a.distance = 25
+        case .beach: a.distance = 30; a.tone = -10
+        case .fire: a.distance = 10; a.tone = -20
+        default: break
+        }
+        return a
+    }
+}
+
 /// Everything the person has chosen. Saved on the device only.
 enum SessionMode: Int, CaseIterable, Codable {
     case timer, interval
@@ -78,6 +104,11 @@ struct Settings: Codable, Equatable {
     var showWords = true
     var countdown = false
     var openSections: Set<String> = ["breathing"]
+    /// Adjust sound settings, by the track's number, for sounds that have been changed.
+    var adjust: [String: SoundAdjust] = [:]
+
+    func adjustment(_ track: MusicTrack) -> SoundAdjust { adjust[String(track.rawValue)] ?? SoundAdjust.designed(track) }
+    func adjusted(_ track: MusicTrack) -> Bool { adjustment(track) != SoundAdjust.designed(track) }
 
     static let custom = -1
     static let limits = [0, 25, 50, 90, custom]
@@ -110,6 +141,9 @@ struct Settings: Codable, Equatable {
         lowerMusicApp = v(.lowerMusicApp, d.lowerMusicApp)
         ease = v(.ease, d.ease)
         track = v(.track, d.track)
+        // Rain and Wind became moods.
+        if track == .rain { track = .window }
+        if track == .wind { track = .hill }
         limit = v(.limit, d.limit)
         customMinutes = min(240, max(5, v(.customMinutes, d.customMinutes)))
         mode = v(.mode, d.mode)
@@ -124,6 +158,7 @@ struct Settings: Codable, Equatable {
         showWords = v(.showWords, d.showWords)
         countdown = v(.countdown, d.countdown)
         openSections = v(.openSections, d.openSections)
+        adjust = v(.adjust, d.adjust)
     }
 
     static func load() -> Settings {
@@ -169,11 +204,16 @@ extension MusicTrack {
         switch self {
         case .brown: return "Brown noise"
         case .pink: return "Pink noise"
+        case .green: return "Green noise"
         case .rain: return "Rain"
-        case .beach: return "Beach"
-        case .stream: return "Stream"
         case .wind: return "Wind"
-        case .fire: return "Fireplace"
+        case .window: return "Rain on the window"
+        case .storm: return "Night storm"
+        case .fire: return "Fireside"
+        case .stream: return "Woodland stream"
+        case .beach: return "Calm shore"
+        case .park: return "Winter park"
+        case .hill: return "Wind on the hill"
         case .ambient: return "Ambient"
         case .keys: return "Soft keys"
         case .classical: return "Classical mix"
@@ -181,14 +221,32 @@ extension MusicTrack {
         }
     }
 
+    /// The Sounds section's three groups. Rain and Wind aren't offered any more: the moods replaced them.
+    static let moods: [MusicTrack] = [.window, .storm, .fire, .stream, .beach, .park, .hill]
+    static let noise: [MusicTrack] = [.brown, .pink, .green]
+    static let gentleMusic: [MusicTrack] = [.ambient, .keys, .classical, .musicApp]
+
+    /// Every sound except "My music app" can be adjusted.
+    var adjustable: Bool { self != .musicApp }
+
     var note: String {
         switch self {
-        case .beach: return "Slow, soft waves generated on your phone, so it works offline."
-        case .ambient: return "Slow chords generated on your phone, so it works offline."
-        case .keys: return "A simple generated sketch, not a finished recording."
+        // What you'll hear, then whether it works offline. Keep these in step with app.js.
+        case .window: return "Rain against glass, a few taps on metal, and heavier rain outside. Shaped from a real recording, and built into the app, so it works offline."
+        case .storm: return "Heavy rain with thunder rolling through, and a little wind. Shaped from a real recording, and built into the app, so it works offline."
+        case .park: return "A quiet park on a cold day, with a song thrush singing nearby. Shaped from a real recording, and built into the app, so it works offline."
+        case .hill: return "Slow, uneven gusts of wind across open ground. Built into the app, so it works offline."
+        case .fire: return "A low, steady fire with gentle crackles. Made on your phone, so it works offline."
+        case .stream: return "Water running over stones, steady and soft. Made on your phone, so it works offline."
+        case .beach: return "Slow, soft waves rolling in and drawing back. Made on your phone, so it works offline."
+        case .brown: return "A deep, soft rumble, with most of its weight in the low sounds. Made on your phone, so it works offline."
+        case .pink: return "A steady, even hiss, softer than white noise. Made on your phone, so it works offline."
+        case .green: return "A gentle hiss centred on the middle sounds. Made on your phone, so it works offline."
+        case .ambient: return "Slow, warm chords that drift gently from one to the next. Made on your phone, so it works offline."
+        case .keys: return "Quiet, unhurried piano notes over a low note every few seconds. Made on your phone, so it works offline."
         case .classical: return "Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use."
         case .musicApp: return "Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. The side buttons change both, so use the Breath slider to balance them."
-        default: return "Generated on your phone, so it works offline."
+        default: return "Made on your phone, so it works offline."
         }
     }
 }

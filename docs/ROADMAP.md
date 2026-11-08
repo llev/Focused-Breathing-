@@ -124,6 +124,25 @@ Still to decide for the Classical mix:
 - **Bandwidth:** about 2 hours 48 minutes of music per listener could use up a free hosting plan quickly. Cloudflare Pages doesn't charge for bandwidth.
 - **Listening:** Lloyd should check every piece for sound quality and sudden loud passages.
 
+### Sound moods and adjustments (test branch, 8 November 2026)
+
+On the `claude/sound-moods` branch for Lloyd to test before merging. Background and listening tests are in Lloyd's Notion research page.
+
+- **Moods are the choices:** Rain on the window, Night storm, Fireside, Woodland stream, Calm shore, Winter park and Wind on the hill. Noise (Brown, Pink and the new Green) and Gentle music (Ambient, Soft keys, Classical mix, My music app) keep plain names, because people look for "brown noise" by name.
+- **Only two rain moods:** Lloyd dropped Under the porch, Drizzle and Storm rolling in, since adjusting Rain on the window or Night storm gets there. First light and Winter park became one mood, with First light's sound and the Winter park name.
+- **Music is now Sounds:** the section, the player bar slider and "Put sounds in the room". "Gentle music" and "My music app" keep the word.
+- **Adjust sound:** a row under the chips that summarises changes, such as "Further away, more thunder". The sheet shows Distance (Near to Far) and Tone (Warm to Bright). Fine tune stays hidden until tapped and holds the sound's Mix layers, if it has any, and Frequencies: Low, Middle and High. Every slider is horizontal, as vertical faders had labels too small to read. Reset returns the sound to how it was designed. Settings are kept per sound.
+- **Learned sounds:** the two rain moods are three layers learned from a storm recording: glass taps, metal taps and outside rain. Real taps are single clicks under half a millisecond, which is why earlier noise-burst rain sounded artificial. Night storm adds thunder rolls rebuilt from the same recording and generated wind. Winter park is a texture-synthesised park with a song thrush sung live from traced note shapes. Wind on the hill is generated. About 14MB in `sounds/`, downloaded the first time each mood plays and kept by the service worker. The loops are FLAC, which is lossless so they still loop without a seam, at about half the size of the original WAV files (8 November 2026). The thunder rolls stay MP3, as they play once.
+- [x] **Licences checked by Lloyd (8 November 2026):** every Freesound source allows this use with attribution, except the Rich Wise song thrush (795708), which needs none. The Help page credits daveincamas (59028) and klankbeeld (818307), and thanks Rich Wise. Keep those credits whenever these sounds ship. InspectorJ's rain on windows (346642) was used while listening but isn't in any file, so it isn't credited; credit it if a future sound uses it.
+- [ ] Lloyd to listen to every mood on headphones and a phone speaker, and judge the levels against brown noise. They were matched by measurement.
+- **Rain on the window is much warmer (8 November 2026):** Lloyd found the two rain moods sounded the same until the thunder came in. Rain on the window now starts with Tone at −75 (first −60, then a little warmer at Lloyd's request), against −15 for Night storm.
+- [ ] Lloyd to test on a real iPhone: check that Night storm starts quickly on mobile data, and that every mood plays in the web app in Safari as well as in the iPhone app.
+- **Less memory on the web (8 November 2026):** decoding the learned sounds the usual way made Night storm hold about 120MB, mostly thunder. Now each loop is decoded once into 16-bit samples at the rate it was made at and played by `sound-worklet.js`, an AudioWorklet, the same design as the iPhone app's SoundBank. Thunder rolls stream from their files through one audio player, so they're never held decoded. Night storm now holds about 16MB.
+- **Ready by play (8 November 2026):** the current mood's files are fetched and decoded as the app opens, behind the launch screen, so pressing play is instant. Only the current mood is fetched, to spare mobile data. The launch screen isn't made longer; anything not ready fades in when it arrives. The iPhone app already decodes the current mood as it opens.
+- [ ] Lloyd to test the web app on an Android phone and in Safari: worklet sound, thunder rolls, and offline after a first play.
+- [ ] Not tried yet: taps made live from a 1MB bank instead of looped files. It halves the download and never repeats, but uses more battery.
+- [x] Port moods, Sounds and Adjust sound to the iPhone app (8 November 2026, same branch). Lloyd to run it from Xcode and test.
+
 ### Analytics
 
 Decided 5 November 2026: anonymous counts in the web app, with PostHog's EU servers.
@@ -185,6 +204,7 @@ A native SwiftUI app in `ios/`, started 2026-11-05. See `ios/README.md` for how 
 - **Minimum iOS 18,** for lock-free atomics in Swift. iOS 26 gets Liquid Glass controls. Earlier versions get a frosted material.
 - **App Store category:** Productivity, not Health & Fitness, to keep clear of medical claims.
 - **Not ported:** the service worker and update prompt, since the App Store handles updates. Spoken words stay hidden until the clips exist, as on the web.
+- **Sound moods on iPhone (8 November 2026, `claude/sound-moods` branch):** the same moods, groups, Sounds rename and Adjust sound as the web app. Adjust sound is a page pushed from the Sounds section. The sound files ship inside the app in `Resources/Sounds/`, so every mood works offline from the first launch; they're copies of `sounds/`, so change both together. Each file is decoded once in the background when its mood is first chosen, into 16-bit memory the audio thread reads without locks (`Core/SoundBank.swift`), about 36MB if every mood is played. Distance, Tone, Low, Middle and High use Apple's EQ and a small room reverb after the music mixer, so they also apply to the Classical mix. Mix layers and the thrush are in the core engine (`Core/LearnedSounds.swift`). Old Rain and Wind settings move to Rain on the window and Wind on the hill.
 
 ## Phase 6: Find out if it helps
 

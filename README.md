@@ -4,7 +4,7 @@
 
 A breathing guide with music or ambient sound, and a separate volume for each. It's designed to run quietly in the background while you work, including on one pair of headphones on a train or in an office.
 
-> **Status:** working prototype. It can be installed and works offline, but it isn't hosted anywhere yet. See [docs/ROADMAP.md](docs/ROADMAP.md) for the work left before launch.
+> **Status:** live at [swellotic.com](https://swellotic.com), with an iPhone app on the way. It can be installed and works offline. See [docs/ROADMAP.md](docs/ROADMAP.md) for the work left before launch.
 
 ## What it does
 
@@ -57,6 +57,8 @@ A native iPhone version is in [`ios/`](ios/README.md). It keeps playing when the
 | `icons/` | App icons, drawn in `icon.svg` |
 | `fonts/` | Bundled fonts and their licences |
 | `classical.json` | The Classical mix: each piece's file, title, performer and Commons source |
+| `sound-worklet.js` | Plays the learned sounds from compact copies on the audio thread |
+| `functions/audio/`, `functions/sounds/` | Let Safari stream the Classical mix and thunder, by answering requests for part of a file. Run on Cloudflare Pages |
 | `functions/ingest.js` | Passes the web app's anonymous counts on to PostHog, without IP addresses. Runs on Cloudflare Pages |
 | `tools/fetch-classical.mjs` | Downloads the Classical mix recordings into `audio/classical/` |
 | `tools/make-voice.mjs` | Makes the spoken words clips with Azure AI Speech. Run once, not part of the app |
