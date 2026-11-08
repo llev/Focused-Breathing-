@@ -230,17 +230,21 @@ final class AudioController {
             guard let url = Self.bundled(slot.fileName, slot.fileExtension) else { continue }
             loading.insert(slot.rawValue)
             let key = slot.rawValue
-            Task.detached(priority: .userInitiated) { [weak self] in
-                // If a file fails to decode, forget it was loading, so choosing the mood again tries once more.
-                guard !Self.decode(url, into: bank, slot: slot) else { return }
-                await MainActor.run { _ = self?.loading.remove(key) }
+            // Decode in the background, then come back here. If it failed, forget it was loading, so choosing the mood
+            // again tries once more.
+            Task { [weak self] in
+                let ok = await Task.detached(priority: .userInitiated) { Self.decode(url, into: bank, slot: slot) }.value
+                if !ok { self?.loading.remove(key) }
             }
         }
         if track == .park && !bank.hasThrush && !thrushLoading, let url = Self.bundled("thrush", "json") {
             thrushLoading = true
-            Task.detached(priority: .userInitiated) { [weak self] in
-                if let data = try? Data(contentsOf: url), let song = ThrushSong(json: data) { bank.publish(song); return }
-                await MainActor.run { self?.thrushLoading = false }
+            Task { [weak self] in
+                let song = await Task.detached(priority: .userInitiated) { () -> ThrushSong? in
+                    guard let data = try? Data(contentsOf: url) else { return nil }
+                    return ThrushSong(json: data)
+                }.value
+                if let song { bank.publish(song) } else { self?.thrushLoading = false }
             }
         }
     }
