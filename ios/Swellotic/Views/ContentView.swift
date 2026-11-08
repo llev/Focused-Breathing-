@@ -192,7 +192,7 @@ struct PlayerBar: View {
             VStack(spacing: 4) {
                 MixSlider(title: "Breath", value: s.breathVolume == 0 ? "Silent" : "\(Int(s.breathVolume))%",
                           number: $model.settings.breathVolume, disabled: false)
-                MixSlider(title: "Music", value: musicApp ? "In your music app" : "\(Int(s.musicVolume))%",
+                MixSlider(title: "Sounds", value: musicApp ? "In your music app" : "\(Int(s.musicVolume))%",
                           number: $model.settings.musicVolume, disabled: musicApp)
             }
 

@@ -28,6 +28,31 @@ final class SynthControls: Sendable {
     let state = Atomic<Int>(0)
     /// Goes up by one each time sound comes back after the phone paused it.
     let resumes = Atomic<Int>(0)
+    /// The learned sounds, loaded by the app and read by the music.
+    let sounds = SoundBank()
+    /// Mix slider gains for the current sound's layers (see SoundLayer.index). Separate values, so reading one never allocates.
+    static let layerCount = 5
+    private let layer0 = AtomicDouble(1), layer1 = AtomicDouble(1), layer2 = AtomicDouble(1), layer3 = AtomicDouble(1), layer4 = AtomicDouble(1)
+
+    @inline(__always) func layer(_ i: Int) -> Double {
+        switch i {
+        case 0: return layer0.value
+        case 1: return layer1.value
+        case 2: return layer2.value
+        case 3: return layer3.value
+        default: return layer4.value
+        }
+    }
+
+    func setLayer(_ i: Int, _ gain: Double) {
+        switch i {
+        case 0: layer0.set(gain)
+        case 1: layer1.set(gain)
+        case 2: layer2.set(gain)
+        case 3: layer3.set(gain)
+        default: layer4.set(gain)
+        }
+    }
 
     var sessionID: Int { state.load(ordering: .relaxed) >> 1 }
     var isPlaying: Bool { state.load(ordering: .relaxed) & 1 == 1 }
@@ -284,14 +309,14 @@ final class MusicSynth {
     init(controls: SynthControls, sampleRate: Double) {
         self.controls = controls
         self.sampleRate = sampleRate
-        generators = MusicTrack.allCases.map { makeGenerator($0, sampleRate: sampleRate) }
+        generators = MusicTrack.allCases.map { makeGenerator($0, sampleRate: sampleRate, controls: controls) }
         level = Smoother(value: 0, timeConstant: 0.05, sampleRate: sampleRate)
     }
 
     func retune(sampleRate newRate: Double) {
         frame = Int64((Double(frame) * newRate / sampleRate).rounded())
         sampleRate = newRate
-        generators = MusicTrack.allCases.map { makeGenerator($0, sampleRate: newRate) }
+        generators = MusicTrack.allCases.map { makeGenerator($0, sampleRate: newRate, controls: controls) }
         current = currentTrack >= 0 && currentTrack < generators.count ? generators[currentTrack] : nil
         current?.reset()
         previous = nil

@@ -11,7 +11,7 @@ struct SettingsSheet: View {
             ScrollView {
                 VStack(spacing: 12) {
                     breathing(s, tint)
-                    music(s, tint)
+                    sounds(s, tint)
                     visuals(s, tint)
                     HStack(spacing: 8) {
                         Link("Help", destination: URL(string: "https://swellotic.com/support.html")!).padding(.horizontal, 12)
@@ -68,10 +68,24 @@ struct SettingsSheet: View {
         }
     }
 
-    private func music(_ s: Settings, _ tint: Color) -> some View {
-        SettingsSection(title: "Music", summary: s.track.name, isOpen: open("music")) {
-            ChipPicker(title: nil, choices: MusicTrack.allCases.map { Choice(value: $0, name: $0.name) },
+    /// The Sounds section: moods, then noise, then gentle music, with Adjust sound for the chosen one.
+    /// Its key stays "music" so the open sections people saved carry over.
+    private func sounds(_ s: Settings, _ tint: Color) -> some View {
+        SettingsSection(title: "Sounds", summary: s.track.name + (s.track.adjustable && s.adjusted(s.track) ? ", adjusted" : ""), isOpen: open("music")) {
+            ChipPicker(title: "Moods", choices: MusicTrack.moods.map { Choice(value: $0, name: $0.name) },
                        selection: $model.settings.track, tint: tint)
+            ChipPicker(title: "Noise", choices: MusicTrack.noise.map { Choice(value: $0, name: $0.name) },
+                       selection: $model.settings.track, tint: tint)
+            ChipPicker(title: "Gentle music", choices: MusicTrack.gentleMusic.map { Choice(value: $0, name: $0.name) },
+                       selection: $model.settings.track, tint: tint)
+            if s.track.adjustable {
+                NavigationLink {
+                    AdjustSoundView(model: model)
+                } label: {
+                    AdjustRow(summary: adjustSummary(s), tint: tint)
+                }
+                .buttonStyle(.plain)
+            }
             if s.track == .classical {
                 ClassicalSaving(model: model, library: model.library, tint: tint)
             }
@@ -80,7 +94,7 @@ struct SettingsSheet: View {
                 ToggleRow(title: "Lower my music app", detail: "Turns your music app down while Swellotic plays, so the breath is easier to hear.",
                           isOn: $model.settings.lowerMusicApp, tint: tint)
             } else {
-                ToggleRow(title: "Put music in the room", detail: "Keeps the breath close and makes the music sound further away in your headphones.",
+                ToggleRow(title: "Put sounds in the room", detail: "Keeps the breath close and makes the sounds seem further away in your headphones.",
                           isOn: $model.settings.room, tint: tint)
             }
         }

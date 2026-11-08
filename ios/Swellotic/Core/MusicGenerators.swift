@@ -9,7 +9,7 @@ protocol MusicGenerator: AnyObject {
     func next() -> (Double, Double)
 }
 
-func makeGenerator(_ track: MusicTrack, sampleRate: Double) -> MusicGenerator? {
+func makeGenerator(_ track: MusicTrack, sampleRate: Double, controls: SynthControls) -> MusicGenerator? {
     switch track {
     case .brown: return BrownNoiseSound(sampleRate: sampleRate)
     case .pink: return PinkNoiseSound(sampleRate: sampleRate)
@@ -17,9 +17,14 @@ func makeGenerator(_ track: MusicTrack, sampleRate: Double) -> MusicGenerator? {
     case .beach: return BeachSound(sampleRate: sampleRate)
     case .stream: return StreamSound(sampleRate: sampleRate)
     case .wind: return WindSound(sampleRate: sampleRate)
-    case .fire: return FireSound(sampleRate: sampleRate)
+    case .fire: return FireSound(sampleRate: sampleRate, controls: controls)
     case .ambient: return AmbientSound(sampleRate: sampleRate)
     case .keys: return SoftKeysSound(sampleRate: sampleRate)
+    case .green: return GreenNoiseSound(sampleRate: sampleRate)
+    case .window: return RainMoodSound(sampleRate: sampleRate, controls: controls, storm: false)
+    case .storm: return RainMoodSound(sampleRate: sampleRate, controls: controls, storm: true)
+    case .park: return ParkSound(sampleRate: sampleRate, controls: controls)
+    case .hill: return WindHillSound(sampleRate: sampleRate, controls: controls)
     case .classical, .musicApp: return nil
     }
 }
@@ -184,7 +189,7 @@ final class WindSound: MusicGenerator {
     }
 }
 
-/// A low rumble with random crackles, about three a second.
+/// A low rumble with random crackles, about three a second. Its Mix sliders are Fire and Crackles.
 final class FireSound: MusicGenerator {
     private struct Crackle { var gain = 0.0; var decay = 1.0; var remaining = 0 }
 
@@ -195,9 +200,16 @@ final class FireSound: MusicGenerator {
     private var crackles = [Crackle](repeating: Crackle(), count: 6)
     private var t = 0.0
     private var nextCrackle = 0.2
+    private let controls: SynthControls
+    private var gains: LayerGains
+    private var counter = 0
 
-    init(sampleRate: Double) {
+    init(sampleRate: Double, controls: SynthControls) {
         sr = sampleRate
+        self.controls = controls
+        var g = LayerGains(sampleRate: sampleRate)
+        g.read(controls); g.snap()
+        gains = g
         let lowLFilter = Biquad(.lowpass, frequency: 480, sampleRate: sampleRate)
         lowL = lowLFilter; lowR = lowLFilter
         let hpLFilter = Biquad(.highpass, frequency: 1500, sampleRate: sampleRate)
@@ -225,6 +237,9 @@ final class FireSound: MusicGenerator {
             nextCrackle += -log(1 - noise.uniform()) / 3
         }
         t += 1 / sr
+        if counter == 0 { gains.read(controls) }
+        counter = (counter + 1) & 255
+        let g = gains.next()
         var cl = 0.0, cr = 0.0
         for i in crackles.indices where crackles[i].remaining > 0 {
             cl += noise.white() * crackles[i].gain
@@ -232,8 +247,8 @@ final class FireSound: MusicGenerator {
             crackles[i].gain *= crackles[i].decay
             crackles[i].remaining -= 1
         }
-        return (lowL.process(brownL.process(noise.white())) * 0.75 + hpL.process(cl),
-                lowR.process(brownR.process(noise.white())) * 0.75 + hpR.process(cr))
+        return (lowL.process(brownL.process(noise.white())) * 0.75 * g[0] + hpL.process(cl) * g[1],
+                lowR.process(brownR.process(noise.white())) * 0.75 * g[0] + hpR.process(cr) * g[1])
     }
 }
 

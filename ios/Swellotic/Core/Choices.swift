@@ -24,10 +24,52 @@ enum BreathPattern: Int, CaseIterable, Codable, Sendable {
 /// The background sound. Raw values are shared with the audio thread, so don't reorder them.
 enum MusicTrack: Int, CaseIterable, Codable, Sendable {
     // Classical replaced "Audio files" and keeps its number, so saved settings carry over.
+    // Rain and Wind became the Rain on the window and Wind on the hill moods; they stay here so old settings still load.
     case brown, pink, rain, beach, stream, wind, fire, ambient, keys, classical, musicApp
+    case green, window, storm, park, hill
 
     /// Generated tracks are made in code. The Classical mix and "My music app" are not.
     var isGenerated: Bool { self != .classical && self != .musicApp }
+
+    /// Moods that play files learned from recordings, so they're silent until those files are loaded.
+    var isLearned: Bool { self == .window || self == .storm || self == .park || self == .hill }
+
+    /// The files a mood needs, in the order they're best loaded.
+    var soundSlots: [SoundBank.Slot] {
+        switch self {
+        case .window: return [.outside, .glass, .metal]
+        case .storm: return [.outside, .glass, .metal, .wind] + SoundBank.Slot.thunder
+        case .park: return [.park]
+        case .hill: return [.wind]
+        default: return []
+        }
+    }
+
+    /// The Mix sliders' layers, by their place in SynthControls.
+    var layers: [SoundLayer] {
+        switch self {
+        case .window: return [.glass, .metal, .outside]
+        case .storm: return [.glass, .metal, .outside, .thunder, .wind]
+        case .fire: return [.fire, .crackles]
+        case .park: return [.park, .birdsong]
+        default: return []
+        }
+    }
+}
+
+/// A part of a sound with its own Mix slider. `index` is its place in SynthControls.
+enum SoundLayer: String, CaseIterable, Codable, Sendable {
+    case glass, metal, outside, thunder, wind, fire, crackles, park, birdsong
+
+    var index: Int {
+        switch self {
+        case .glass, .fire, .park: return 0
+        case .metal, .crackles, .birdsong: return 1
+        case .outside: return 2
+        case .thunder: return 3
+        case .wind: return 4
+        }
+    }
 }
 
 /// Slider positions feel more even to the ear when squared, as in the web app.

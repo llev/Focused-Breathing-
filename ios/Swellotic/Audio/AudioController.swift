@@ -7,7 +7,7 @@ import UIKit
 ///
 /// Signal path:
 /// breath → sum → limiter → output
-/// generated music + Classical mix → music mixer → room filter → room reverb → sum
+/// generated music + Classical mix → music mixer → Adjust sound EQ → distance echo → room filter → room reverb → sum
 ///
 /// The app asks iOS for background audio (UIBackgroundModes in Info.plist), so sound keeps playing when the screen locks.
 /// "My music app" mixes with other apps, so Spotify or Apple Music keep playing; everything else takes over the sound.
@@ -34,6 +34,13 @@ final class AudioController {
     private var breathNode: AVAudioSourceNode?
     private var musicNode: AVAudioSourceNode?
     private var musicMixer = AVAudioMixerNode()
+    /// Adjust sound: Tone (two shelves), Low, Middle and High, then a lowpass for Distance.
+    private var adjustEQ = AVAudioUnitEQ(numberOfBands: 6)
+    /// Distance adds a little echo, separate from "Put sounds in the room".
+    private var distanceReverb = AVAudioUnitReverb()
+    /// Learned sound files being decoded, so each is only loaded once.
+    private var loading = Set<Int>()
+    private var thrushLoading = false
     private var roomFilter = AVAudioUnitEQ(numberOfBands: 1)
     private var roomReverb = AVAudioUnitReverb()
     private var sum = AVAudioMixerNode()
@@ -110,6 +117,8 @@ final class AudioController {
         engine.stop()
         engine = AVAudioEngine()
         musicMixer = AVAudioMixerNode()
+        adjustEQ = AVAudioUnitEQ(numberOfBands: 6)
+        distanceReverb = AVAudioUnitReverb()
         roomFilter = AVAudioUnitEQ(numberOfBands: 1)
         roomReverb = AVAudioUnitReverb()
         sum = AVAudioMixerNode()
@@ -125,11 +134,13 @@ final class AudioController {
         breathNode = breath
         musicNode = music
 
-        for node in [breath, music, musicMixer, player, roomFilter, roomReverb, sum, limiter] as [AVAudioNode] { engine.attach(node) }
+        for node in [breath, music, musicMixer, player, adjustEQ, distanceReverb, roomFilter, roomReverb, sum, limiter] as [AVAudioNode] { engine.attach(node) }
         engine.connect(breath, to: sum, format: format)
         engine.connect(music, to: musicMixer, format: format)
         engine.connect(player, to: musicMixer, format: fileFormat)
-        engine.connect(musicMixer, to: roomFilter, format: format)
+        engine.connect(musicMixer, to: adjustEQ, format: format)
+        engine.connect(adjustEQ, to: distanceReverb, format: format)
+        engine.connect(distanceReverb, to: roomFilter, format: format)
         engine.connect(roomFilter, to: roomReverb, format: format)
         engine.connect(roomReverb, to: sum, format: format)
         engine.connect(sum, to: limiter, format: format)
@@ -140,7 +151,9 @@ final class AudioController {
         band.frequency = 2200
         band.bypass = false
         roomReverb.loadFactoryPreset(.mediumHall)
+        distanceReverb.loadFactoryPreset(.mediumRoom)
         applyRoom()
+        applyAdjust()
         engine.prepare()
         built = true
     }
@@ -156,6 +169,8 @@ final class AudioController {
         c.ease.store(new.ease, ordering: .relaxed)
         c.cue.store(new.sound.rawValue, ordering: .relaxed)
         c.track.store(new.track.rawValue, ordering: .relaxed)
+        applyAdjust()
+        loadSounds(for: new.track)
         // Music apps play mastered tracks close to full scale, so breaths get extra headroom alongside them.
         // The limiter catches any peaks.
         c.breathGain.set(volumeCurve(new.breathVolume) * 0.9 * (new.track == .musicApp ? Self.musicAppBoost : 1))
@@ -181,7 +196,77 @@ final class AudioController {
 
     private var musicVolume: Float { Float(volumeCurve(settings.musicVolume)) }
 
-    /// "Put music in the room" keeps the breath close and makes the music sound further away.
+    /// Adjust sound for the current sound: Distance, Tone, Low, Middle, High and its Mix layers. Matches app.js.
+    private func applyAdjust() {
+        let track = settings.track, a = settings.adjustment(track)
+        let d = a.distance / 100, tone = a.tone / 100
+        let b = adjustEQ.bands
+        let shapes: [(AVAudioUnitEQFilterType, Float, Double)] = [
+            (.lowShelf, 250, -tone * 7), (.highShelf, 3000, tone * 7),
+            (.lowShelf, 200, a.low), (.parametric, 1000, a.middle), (.highShelf, 4000, a.high), (.lowPass, 0, 0)
+        ]
+        for (i, shape) in shapes.enumerated() {
+            b[i].filterType = shape.0
+            b[i].bypass = false
+            if shape.0 == .lowPass {
+                b[i].frequency = Float(20_000 * pow(2_200 / 20_000, d))
+            } else {
+                b[i].frequency = shape.1
+                b[i].gain = Float(shape.2)
+            }
+            if shape.0 == .parametric { b[i].bandwidth = 1.9 }
+        }
+        adjustEQ.globalGain = Float(20 * log10(1 - 0.45 * d))
+        distanceReverb.wetDryMix = Float(40 * d)
+        let c = synth.controls
+        for i in 0..<SynthControls.layerCount { c.setLayer(i, 1) }
+        for layer in track.layers { c.setLayer(layer.index, pow(a.layer(layer) / 50, 1.6)) }
+    }
+
+    /// Learned sounds are decoded in the background the first time a mood is chosen, then kept for as long as the app runs.
+    private func loadSounds(for track: MusicTrack) {
+        let bank = synth.controls.sounds
+        for slot in track.soundSlots where !bank.isReady(slot) && !loading.contains(slot.rawValue) {
+            guard let url = Self.bundled(slot.fileName, slot.fileExtension) else { continue }
+            loading.insert(slot.rawValue)
+            Task.detached(priority: .userInitiated) { Self.decode(url, into: bank, slot: slot) }
+        }
+        if track == .park && !bank.hasThrush && !thrushLoading, let url = Self.bundled("thrush", "json") {
+            thrushLoading = true
+            Task.detached(priority: .userInitiated) {
+                if let data = try? Data(contentsOf: url), let song = ThrushSong(json: data) { bank.publish(song) }
+            }
+        }
+    }
+
+    nonisolated private static func bundled(_ name: String, _ ext: String) -> URL? {
+        Bundle.main.url(forResource: name, withExtension: ext) ?? Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Sounds")
+    }
+
+    /// Reads a whole file into 16-bit stereo, which halves the memory of keeping it as floats.
+    nonisolated private static func decode(_ url: URL, into bank: SoundBank, slot: SoundBank.Slot) {
+        guard let file = try? AVAudioFile(forReading: url) else { return }
+        let format = file.processingFormat
+        let capacity = Int(file.length) + 4096
+        guard capacity > 4096, let chunk = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 16_384) else { return }
+        let out = UnsafeMutablePointer<Int16>.allocate(capacity: capacity * 2)
+        var written = 0
+        while written < capacity {
+            do { try file.read(into: chunk, frameCount: min(16_384, AVAudioFrameCount(capacity - written))) } catch { break }
+            let n = Int(chunk.frameLength)
+            guard n > 0, let channels = chunk.floatChannelData else { break }
+            let left = channels[0], right = format.channelCount > 1 ? channels[1] : channels[0]
+            for i in 0..<n {
+                out[2 * (written + i)] = Int16(max(-32_767, min(32_767, (Double(left[i]) * 32_767).rounded())))
+                out[2 * (written + i) + 1] = Int16(max(-32_767, min(32_767, (Double(right[i]) * 32_767).rounded())))
+            }
+            written += n
+        }
+        guard written > 1 else { out.deallocate(); return }
+        bank.publish(slot, samples: out, frames: written, rate: format.sampleRate)
+    }
+
+    /// "Put sounds in the room" keeps the breath close and makes the sounds seem further away.
     private func applyRoom() {
         let on = settings.room && settings.track != .musicApp
         roomFilter.bands[0].bypass = !on

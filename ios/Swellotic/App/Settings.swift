@@ -44,6 +44,32 @@ enum Palette: Int, CaseIterable, Codable {
     }
 }
 
+/// Adjust sound: how far away a sound is, its tone, three frequency bands and its Mix layers.
+/// Distance runs 0 to 100, Tone −100 (warm) to 100 (bright), the bands −12 to 12 dB, and layers 0 to 100 with 50 as designed.
+struct SoundAdjust: Codable, Equatable {
+    var distance = 0.0
+    var tone = 0.0
+    var low = 0.0, middle = 0.0, high = 0.0
+    var layers: [String: Double] = [:]
+
+    func layer(_ l: SoundLayer) -> Double { layers[l.rawValue] ?? 50 }
+
+    /// How each sound starts, matching app.js.
+    static func designed(_ track: MusicTrack) -> SoundAdjust {
+        var a = SoundAdjust()
+        switch track {
+        case .window: a.tone = -75
+        case .storm: a.distance = 20; a.tone = -15; a.layers = [SoundLayer.wind.rawValue: 30]
+        case .park: a.distance = 15; a.layers = [SoundLayer.park.rawValue: 38, SoundLayer.birdsong.rawValue: 62]
+        case .hill: a.distance = 25
+        case .beach: a.distance = 30; a.tone = -10
+        case .fire: a.distance = 10; a.tone = -20
+        default: break
+        }
+        return a
+    }
+}
+
 /// Everything the person has chosen. Saved on the device only.
 enum SessionMode: Int, CaseIterable, Codable {
     case timer, interval
@@ -78,6 +104,11 @@ struct Settings: Codable, Equatable {
     var showWords = true
     var countdown = false
     var openSections: Set<String> = ["breathing"]
+    /// Adjust sound settings, by the track's number, for sounds that have been changed.
+    var adjust: [String: SoundAdjust] = [:]
+
+    func adjustment(_ track: MusicTrack) -> SoundAdjust { adjust[String(track.rawValue)] ?? SoundAdjust.designed(track) }
+    func adjusted(_ track: MusicTrack) -> Bool { adjustment(track) != SoundAdjust.designed(track) }
 
     static let custom = -1
     static let limits = [0, 25, 50, 90, custom]
@@ -110,6 +141,9 @@ struct Settings: Codable, Equatable {
         lowerMusicApp = v(.lowerMusicApp, d.lowerMusicApp)
         ease = v(.ease, d.ease)
         track = v(.track, d.track)
+        // Rain and Wind became moods.
+        if track == .rain { track = .window }
+        if track == .wind { track = .hill }
         limit = v(.limit, d.limit)
         customMinutes = min(240, max(5, v(.customMinutes, d.customMinutes)))
         mode = v(.mode, d.mode)
@@ -124,6 +158,7 @@ struct Settings: Codable, Equatable {
         showWords = v(.showWords, d.showWords)
         countdown = v(.countdown, d.countdown)
         openSections = v(.openSections, d.openSections)
+        adjust = v(.adjust, d.adjust)
     }
 
     static func load() -> Settings {
@@ -169,11 +204,16 @@ extension MusicTrack {
         switch self {
         case .brown: return "Brown noise"
         case .pink: return "Pink noise"
+        case .green: return "Green noise"
         case .rain: return "Rain"
-        case .beach: return "Beach"
-        case .stream: return "Stream"
         case .wind: return "Wind"
-        case .fire: return "Fireplace"
+        case .window: return "Rain on the window"
+        case .storm: return "Night storm"
+        case .fire: return "Fireside"
+        case .stream: return "Woodland stream"
+        case .beach: return "Calm shore"
+        case .park: return "Winter park"
+        case .hill: return "Wind on the hill"
         case .ambient: return "Ambient"
         case .keys: return "Soft keys"
         case .classical: return "Classical mix"
@@ -181,8 +221,21 @@ extension MusicTrack {
         }
     }
 
+    /// The Sounds section's three groups. Rain and Wind aren't offered any more: the moods replaced them.
+    static let moods: [MusicTrack] = [.window, .storm, .fire, .stream, .beach, .park, .hill]
+    static let noise: [MusicTrack] = [.brown, .pink, .green]
+    static let gentleMusic: [MusicTrack] = [.ambient, .keys, .classical, .musicApp]
+
+    /// Every sound except "My music app" can be adjusted.
+    var adjustable: Bool { self != .musicApp }
+
     var note: String {
         switch self {
+        case .window: return "Rain on glass, a few taps on metal, and heavier rain outside. Learned from a real recording."
+        case .storm: return "Heavy rain with thunder rolling through, and a little wind. Learned from a real recording."
+        case .park: return "A quiet park with a song thrush singing. Learned from real recordings."
+        case .hill: return "Slow, uneven gusts, made in advance and kept on your phone."
+        case .green: return "Noise centred on the middle frequencies. Generated on your phone, so it works offline."
         case .beach: return "Slow, soft waves generated on your phone, so it works offline."
         case .ambient: return "Slow chords generated on your phone, so it works offline."
         case .keys: return "A simple generated sketch, not a finished recording."
