@@ -39,24 +39,27 @@
 
   const RATIOS = { even: ['Even', .5], long: ['Longer out', .4], longest: ['Much longer out', 1 / 3] };
   const CUES = { bowl: 'Singing bowl', gong: 'Gong', words: 'Spoken words', piano: 'Soft piano', wood: 'Wooden marimba', tone: 'Soft hum', chime: 'Chime', breath: 'Ocean', none: 'Silent' };
-  const OFFLINE = 'Generated on your device, so it works offline.';
+  /* Each sound's note says what you'll hear, then whether it works offline. Keep these in step with Settings.swift. */
+  const MADE = ' Made on your device, so it works offline.';
+  const DOWNLOADS = ' It downloads the first time you play it, then works offline.';
+  const SHAPED = ' Shaped from a real recording.' + DOWNLOADS;
   const MOODS = {
-    window: ['Rain on the window', 'Rain on glass, a few taps on metal, and heavier rain outside. Learned from a real recording.'],
-    storm: ['Night storm', 'Heavy rain with thunder rolling through, and a little wind. Learned from a real recording.'],
-    fire: ['Fireside', OFFLINE],
-    stream: ['Woodland stream', OFFLINE],
-    beach: ['Calm shore', 'Slow, soft waves generated on your device, so it works offline.'],
-    park: ['Winter park', 'A quiet park with a song thrush singing. Learned from real recordings.'],
-    hill: ['Wind on the hill', 'Slow, uneven gusts, made on your device.']
+    window: ['Rain on the window', 'Rain against glass, a few taps on metal, and heavier rain outside.' + SHAPED],
+    storm: ['Night storm', 'Heavy rain with thunder rolling through, and a little wind.' + SHAPED],
+    fire: ['Fireside', 'A low, steady fire with gentle crackles.' + MADE],
+    stream: ['Woodland stream', 'Water running over stones, steady and soft.' + MADE],
+    beach: ['Calm shore', 'Slow, soft waves rolling in and drawing back.' + MADE],
+    park: ['Winter park', 'A quiet park on a cold day, with a song thrush singing nearby.' + SHAPED],
+    hill: ['Wind on the hill', 'Slow, uneven gusts of wind across open ground.' + DOWNLOADS]
   };
   const NOISES = {
-    brown: ['Brown noise', OFFLINE],
-    pink: ['Pink noise', OFFLINE],
-    green: ['Green noise', 'Noise centred on the middle frequencies. ' + OFFLINE]
+    brown: ['Brown noise', 'A deep, soft rumble, with most of its weight in the low sounds.' + MADE],
+    pink: ['Pink noise', 'A steady, even hiss, softer than white noise.' + MADE],
+    green: ['Green noise', 'A gentle hiss centred on the middle sounds.' + MADE]
   };
   const MUSICS = {
-    ambient: ['Ambient', 'Slow chords generated on your device, so it works offline.'],
-    keys: ['Soft keys', 'A simple generated sketch, not a finished recording.'],
+    ambient: ['Ambient', 'Slow, warm chords that drift gently from one to the next.' + MADE],
+    keys: ['Soft keys', 'Quiet, unhurried piano notes over a low note every few seconds.' + MADE],
     classical: ['Classical mix', 'Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use.'],
     none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. On a phone, the side buttons change both, so use the Breath slider to balance them.']
   };
@@ -584,7 +587,7 @@
   player.addEventListener('error', () => {
     if (!owner || !running) return;
     if (++failures >= pieces.length || (!navigator.onLine && !saved.size)) {
-      $('status').textContent = navigator.onLine ? "The classical music couldn't load. Try another sound." : 'Connect to the internet to play the classical mix, or turn on Save all for offline next time.';
+      $('status').textContent = navigator.onLine ? "The Classical mix couldn't load. Try another sound." : 'Connect to the internet to play the Classical mix, or turn on "Save all for offline" next time.';
       return;
     }
     skipPiece(1);
@@ -951,7 +954,7 @@
   $('nextPiece').addEventListener('click', () => skipPiece(1));
   $('repeatOne').addEventListener('click', () => { S.repeatOne = !S.repeatOne; player.loop = S.repeatOne; save(); paintPiece(); });
   $('go').addEventListener('click', () => running ? stop() : start().catch(() => {
-    running = false; $('status').textContent = 'Sound could not start. Reload the page and press Start again.';
+    running = false; $('status').textContent = "Sound couldn't start. Reload the page and press play again.";
   }));
   function setSheet(open) {
     $('app').classList.toggle('quiet', !open); $('quiet').setAttribute('aria-expanded', String(open));
@@ -1057,7 +1060,7 @@
     if (!running) return;
     paused = true;
     ctx.resume().then(() => { if (ctx.state === 'running') soundBack(); }).catch(() => {
-      $('status').textContent = 'Sound could not restart. Press stop, then play.';
+      $('status').textContent = "Sound couldn't restart. Press stop, then play.";
     });
   });
 

@@ -231,17 +231,22 @@ extension MusicTrack {
 
     var note: String {
         switch self {
-        case .window: return "Rain on glass, a few taps on metal, and heavier rain outside. Learned from a real recording."
-        case .storm: return "Heavy rain with thunder rolling through, and a little wind. Learned from a real recording."
-        case .park: return "A quiet park with a song thrush singing. Learned from real recordings."
-        case .hill: return "Slow, uneven gusts, made in advance and kept on your phone."
-        case .green: return "Noise centred on the middle frequencies. Generated on your phone, so it works offline."
-        case .beach: return "Slow, soft waves generated on your phone, so it works offline."
-        case .ambient: return "Slow chords generated on your phone, so it works offline."
-        case .keys: return "A simple generated sketch, not a finished recording."
+        // What you'll hear, then whether it works offline. Keep these in step with app.js.
+        case .window: return "Rain against glass, a few taps on metal, and heavier rain outside. Shaped from a real recording, and built into the app, so it works offline."
+        case .storm: return "Heavy rain with thunder rolling through, and a little wind. Shaped from a real recording, and built into the app, so it works offline."
+        case .park: return "A quiet park on a cold day, with a song thrush singing nearby. Shaped from a real recording, and built into the app, so it works offline."
+        case .hill: return "Slow, uneven gusts of wind across open ground. Built into the app, so it works offline."
+        case .fire: return "A low, steady fire with gentle crackles. Made on your phone, so it works offline."
+        case .stream: return "Water running over stones, steady and soft. Made on your phone, so it works offline."
+        case .beach: return "Slow, soft waves rolling in and drawing back. Made on your phone, so it works offline."
+        case .brown: return "A deep, soft rumble, with most of its weight in the low sounds. Made on your phone, so it works offline."
+        case .pink: return "A steady, even hiss, softer than white noise. Made on your phone, so it works offline."
+        case .green: return "A gentle hiss centred on the middle sounds. Made on your phone, so it works offline."
+        case .ambient: return "Slow, warm chords that drift gently from one to the next. Made on your phone, so it works offline."
+        case .keys: return "Quiet, unhurried piano notes over a low note every few seconds. Made on your phone, so it works offline."
         case .classical: return "Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use."
         case .musicApp: return "Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. The side buttons change both, so use the Breath slider to balance them."
-        default: return "Generated on your phone, so it works offline."
+        default: return "Made on your phone, so it works offline."
         }
     }
 }

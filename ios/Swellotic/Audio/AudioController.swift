@@ -419,8 +419,8 @@ final class AudioController {
                 let offline = error is URLError
                 if self.failures >= self.library.pieces.count || (offline && self.library.savedCount == 0) {
                     self.onEvent?(.classical(offline
-                        ? "Connect to the internet to play the classical mix, or turn on Save all for offline next time."
-                        : "The classical music couldn't load. Try another sound."))
+                        ? "Connect to the internet to play the Classical mix, or turn on \"Save all for offline\" next time."
+                        : "The Classical mix couldn't load. Try another sound."))
                     return
                 }
                 // Offline or a broken file: move on to the next piece that can play.
