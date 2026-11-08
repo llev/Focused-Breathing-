@@ -72,7 +72,7 @@
         <div class="mix">
           <div class="row"><label for="breathVol">Breath <output id="breathOut" for="breathVol"></output></label>
             <input id="breathVol" type="range" min="0" max="100"></div>
-          <div class="row"><label for="musicVol">Music <output id="musicOut" for="musicVol"></output></label>
+          <div class="row"><label for="musicVol">Sounds <output id="musicOut" for="musicVol"></output></label>
             <input id="musicVol" type="range" min="0" max="100"></div>
         </div>
         <button id="quiet" class="round" type="button" aria-label="Settings" aria-expanded="true" aria-controls="desk">
@@ -98,15 +98,22 @@
     </details>
 
     <details class="panel glass" id="panel-music">
-      <summary><h2>Music</h2><span class="sum" id="sum-music"></span></summary>
+      <summary><h2>Sounds</h2><span class="sum" id="sum-music"></span></summary>
       <div class="panel-body">
-        <div class="chips" id="track" role="radiogroup" aria-label="Music"></div>
+        <fieldset><legend>Moods</legend><div class="chips" id="track-moods"></div></fieldset>
+        <fieldset><legend>Noise</legend><div class="chips" id="track-noise"></div></fieldset>
+        <fieldset><legend>Gentle music</legend><div class="chips" id="track-music"></div></fieldset>
+        <button class="adjust-row" id="adjustBtn" type="button" aria-haspopup="dialog" aria-controls="adjustSheet" aria-expanded="false">
+          <span class="adjust-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></span>
+          <span class="adjust-text">Adjust sound<small id="adjustSum">As designed</small></span>
+          <svg class="adjust-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
         <div class="piece" id="classical" hidden>
           <p class="note" id="pieceCount"></p>
           <label class="check" id="saveRow"><span>Save all for offline<small id="savedNote"></small></span><input id="saveAll" type="checkbox"></label>
         </div>
         <p class="note" id="trackNote"></p>
-        <label class="check"><span>Put music in the room<small>Keeps the breath close and makes the music sound further away in your headphones.</small></span><input id="room" type="checkbox"></label>
+        <label class="check"><span>Put sounds in the room<small>Keeps the breath close and makes the sounds seem further away in your headphones.</small></span><input id="room" type="checkbox"></label>
       </div>
     </details>
 
@@ -147,6 +154,28 @@
       <fieldset><legend>Rounds</legend><div class="chips" id="rounds"></div></fieldset>
       <p class="note" id="intervalNote"></p>
     </div>
+  </div>
+</section>
+<section class="drawer" id="adjustSheet" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="adjustTitle">
+  <div class="drawer-head"><h2 id="adjustTitle">Adjust sound</h2><button id="adjustDone" class="done-btn" type="button">Done</button></div>
+  <div class="drawer-body">
+    <div class="row"><label for="adjDistance">Distance</label>
+      <input id="adjDistance" type="range" min="0" max="100" step="1">
+      <div class="ends" aria-hidden="true"><span>Near</span><span>Far</span></div></div>
+    <div class="row"><label for="adjTone">Tone</label>
+      <input id="adjTone" type="range" min="-100" max="100" step="1">
+      <div class="ends" aria-hidden="true"><span>Warm</span><span>Bright</span></div></div>
+    <button class="fine-toggle" id="fineBtn" type="button" aria-expanded="false" aria-controls="fine">
+      <span>Fine tune<small id="fineSum">Not changed</small></span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="fine" id="fine" hidden>
+      <div class="layers" id="layers"></div>
+      <fieldset><legend>Frequencies</legend>
+        <div class="faders" id="faders"></div>
+      </fieldset>
+    </div>
+    <button class="text-btn" id="adjustReset" type="button">Reset to how it was designed</button>
   </div>
 </section>
 <script src="app.js"></script>

@@ -256,3 +256,28 @@ legend { padding: 0; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
   .splash-mark, .splash-mark *, .splash.skip .splash-mark { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; stroke-dashoffset: 0 !important; }
   .splash-wave.two { opacity: .85 !important; }
 }
+
+/* Prototype: Adjust sound row and sheet. */
+.adjust-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 12px; border-radius: 16px; text-align: left;
+  background: rgba(255, 255, 255, .07); border: 1px solid var(--hair); color: var(--ink); }
+.adjust-row[hidden] { display: none; }
+.adjust-icon { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--tint) 18%, transparent); }
+.adjust-icon svg, .adjust-chev, .fine-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.adjust-icon svg { stroke: var(--tint); }
+.adjust-chev { flex: none; color: var(--soft); }
+.adjust-text { flex: 1; min-width: 0; display: grid; font-weight: 600; }
+.adjust-text small, .fine-toggle small { display: block; color: var(--soft); font-size: .875rem; font-weight: 400; }
+.ends { display: flex; justify-content: space-between; color: var(--soft); font-size: .8125rem; }
+.fine-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding-top: 12px; border-top: 1px solid var(--hair);
+  background: transparent; color: var(--ink); text-align: left; font-weight: 600; }
+.fine-toggle svg { color: var(--soft); transition: transform .2s ease; }
+.fine-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.fine { display: grid; gap: 18px; }
+.fine[hidden] { display: none; }
+.layers { display: grid; gap: 12px; }
+.layers:empty { display: none; }
+.faders { display: grid; gap: 12px; }
+.faders input[type=range]::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--well) var(--lo), var(--tint) var(--lo), var(--tint) var(--hi), var(--well) var(--hi)); }
+.faders input[type=range]::-moz-range-progress { background: transparent; }
+.group-label { margin: 0; font-size: .875rem; font-weight: 600; }
+.text-btn { justify-self: center; min-height: 44px; padding: 0 12px; background: transparent; color: var(--tint); font-weight: 600; }

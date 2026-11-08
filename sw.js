@@ -8,10 +8,13 @@
    offers "Tap to update" when nothing is playing, and the new version also
    takes over by itself the next time the app is fully closed and reopened.
    It never swaps files in the middle of a session. */
-const VERSION = '16';
+const VERSION = '17';
 const CACHE = 'swellotic-' + VERSION;
 /* Classical recordings kept for offline use. This store is not versioned, so app updates don't throw saved music away. */
 const MUSIC = 'swellotic-music';
+/* Learned sounds (rain, storm, wind, park), kept the first time each mood plays. Not versioned either, so updates keep them;
+   when a file changes, give it a new name. */
+const SOUNDS = 'swellotic-sounds';
 const FILES = [
   './',
   'index.html',
@@ -47,7 +50,7 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k.startsWith('swellotic-') && k !== CACHE && k !== MUSIC).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('swellotic-') && k !== CACHE && k !== MUSIC && k !== SOUNDS).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -59,6 +62,7 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   if (new URL(req.url).pathname.includes('/audio/classical/')) { event.respondWith(music(req)); return; }
+  if (new URL(req.url).pathname.includes('/sounds/')) { event.respondWith(sound(req)); return; }
   if (req.mode === 'navigate') {
     /* The Privacy and Help pages open as themselves, with or without ".html", because Cloudflare drops it.
        Any other page address inside the app, including ones with ?query strings, opens the cached app. */
@@ -96,4 +100,13 @@ async function music(req) {
       'Accept-Ranges': 'bytes'
     }
   });
+}
+
+/* Learned sounds: served from the store once kept, otherwise downloaded and kept for next time. */
+async function sound(req) {
+  const store = await caches.open(SOUNDS), hit = await store.match(req, { ignoreSearch: true });
+  if (hit) return hit;
+  const res = await fetch(req);
+  if (res.ok && res.status === 200) store.put(req, res.clone()).catch(() => {});
+  return res;
 }

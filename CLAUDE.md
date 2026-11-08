@@ -14,7 +14,9 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 - `app.js` has one timeline of breathing phases. Sound and visuals both read from it, so they stay in step. Don't give the visuals a separate timer.
 - Sound is scheduled ahead on the Web Audio clock because browsers slow down timers in background tabs.
 - `audioSession.type` is `ambient` for "My music app" so other apps can keep playing, and `playback` otherwise.
-- All background sound is generated in code, except the Classical mix and the planned spoken words clips.
+- Background sound is generated in code, except the Classical mix, the planned spoken words clips and the learned sounds in `sounds/`.
+- The learned sounds are new audio made by Claude from measurements of Freesound recordings Lloyd chose: rain, thunderstorm and park, plus generated wind and thrush note shapes. They download when a mood is first played and the service worker keeps them in its `swellotic-sounds` store. Lloyd agreed on 8 November 2026 to commit them to a test branch. Check each source recording's licence before they reach `main`. The scripts that made them are in `tools/sound-lab/`.
+- The Sounds section offers moods, then Noise, then Gentle music. Every sound except My music app has an Adjust sound sheet: Distance and Tone, with Fine tune (its Mix layers and Low, Middle and High) hidden until tapped. Settings are kept per sound in `S.adjust`, storing only what differs from how the sound was designed.
 - The Classical mix streams public domain MP3s from `audio/classical/`. They're listed in `classical.json` and downloaded by `tools/fetch-classical.mjs`. Lloyd agreed on 5 November 2026 to commit these public domain recordings. The ban on committing third-party audio still covers everything else. Never decode a whole piece into memory, because they're up to 15 minutes long.
 - The spoken words clips are made once with `tools/make-voice.mjs`. Don't commit them until Lloyd has confirmed the voice service's terms allow it.
 - Breath sounds last the whole breath and fall silent as the next one begins.
@@ -55,7 +57,7 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 ### Design
 
 - The single dark look and frosted glass controls are deliberate. It should feel like a premium, friendly iPhone app.
-- The player bar stays on screen with play, Breath, Music and Settings.
+- The player bar stays on screen with play, Breath, Sounds and Settings.
 - Sections stay collapsible and show their current setting when closed.
 - Design for phones first, with touch targets of at least 44px.
 - Keep `prefers-reduced-motion` support: visuals become a gentle colour fade.
@@ -65,7 +67,7 @@ The work left is in `docs/ROADMAP.md`. Follow its phases in order, tick items of
 
 - Don't use the word "Pomodoro" in the app or marketing. It's a registered trademark. The session option is called "Interval", and its two times are "Swell" and "Rest".
 - Use UK English and plain, friendly language.
-- Name things by what people recognise, such as "Breath" and "Music", not technical terms.
+- Name things by what people recognise, such as "Breath" and "Sounds", not technical terms. Lloyd renamed Music to Sounds on 8 November 2026, as it covers rain and noise as well as music.
 
 ## Testing
 

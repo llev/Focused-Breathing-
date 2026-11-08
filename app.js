@@ -4,6 +4,15 @@
   try { Object.assign(S, JSON.parse(localStorage.getItem('breathing-room') || '{}')); } catch (e) {}
   /* "Audio files" was replaced by the classical mix. */
   if (S.track === 'own') S.track = 'classical';
+  /* Prototype: Rain and Wind became moods. */
+  if (S.track === 'rain') S.track = 'window';
+  if (S.track === 'wind') S.track = 'hill';
+  /* First light's sound became Winter park. */
+  if (S.track === 'dawn') S.track = 'park';
+  if (S.adjust && S.adjust.dawn) { S.adjust.park = S.adjust.dawn; delete S.adjust.dawn; }
+  /* Fine tune went from eight bands to three. */
+  if (S.adjust) Object.values(S.adjust).forEach(a => { if (a && a.bands && a.bands.length !== 3) delete a.bands; });
+  if (!S.adjust || typeof S.adjust !== 'object') S.adjust = {};
   /* The interval switch became a tab. */
   if (S.intervals) S.mode = 'interval';
   delete S.intervals;
@@ -30,19 +39,52 @@
 
   const RATIOS = { even: ['Even', .5], long: ['Longer out', .4], longest: ['Much longer out', 1 / 3] };
   const CUES = { bowl: 'Singing bowl', gong: 'Gong', words: 'Spoken words', piano: 'Soft piano', wood: 'Wooden marimba', tone: 'Soft hum', chime: 'Chime', breath: 'Ocean', none: 'Silent' };
-  const TRACKS = {
-    brown: ['Brown noise', 'Generated on your device, so it works offline.'],
-    pink: ['Pink noise', 'Generated on your device, so it works offline.'],
-    rain: ['Rain', 'Generated on your device, so it works offline.'],
-    beach: ['Beach', 'Slow, soft waves generated on your device, so it works offline.'],
-    stream: ['Stream', 'Generated on your device, so it works offline.'],
-    wind: ['Wind', 'Generated on your device, so it works offline.'],
-    fire: ['Fireplace', 'Generated on your device, so it works offline.'],
+  const OFFLINE = 'Generated on your device, so it works offline.';
+  const MOODS = {
+    window: ['Rain on the window', 'Rain on glass, a few taps on metal, and heavier rain outside. Learned from a real recording.'],
+    storm: ['Night storm', 'Heavy rain with thunder rolling through, and a little wind. Learned from a real recording.'],
+    fire: ['Fireside', OFFLINE],
+    stream: ['Woodland stream', OFFLINE],
+    beach: ['Calm shore', 'Slow, soft waves generated on your device, so it works offline.'],
+    park: ['Winter park', 'A quiet park with a song thrush singing. Learned from real recordings.'],
+    hill: ['Wind on the hill', 'Slow, uneven gusts, made on your device.']
+  };
+  const NOISES = {
+    brown: ['Brown noise', OFFLINE],
+    pink: ['Pink noise', OFFLINE],
+    green: ['Green noise', 'Noise centred on the middle frequencies. ' + OFFLINE]
+  };
+  const MUSICS = {
     ambient: ['Ambient', 'Slow chords generated on your device, so it works offline.'],
     keys: ['Soft keys', 'A simple generated sketch, not a finished recording.'],
     classical: ['Classical mix', 'Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use.'],
     none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. On a phone, the side buttons change both, so use the Breath slider to balance them.']
   };
+  const TRACKS = { ...MOODS, ...NOISES, ...MUSICS };
+  if (!TRACKS[S.track]) S.track = 'brown';
+
+  /* Adjust sound: every sound but My music app has Distance and Tone. Fine tune holds its layers, if it has any, and eight frequency bands. */
+  /* Fine tune: a low shelf, a broad middle and a high shelf. */
+  const BANDS = [['lowshelf', 200, 0], ['peaking', 1000, .7], ['highshelf', 4000, 0]];
+  const BAND_NAMES = ['Low', 'Middle', 'High'];
+  const RAIN = [['glass', 'Rain on glass'], ['metal', 'Taps on metal'], ['outside', 'Rain outside']];
+  const LAYERS = {
+    window: RAIN, storm: [...RAIN, ['thunder', 'Thunder'], ['wind', 'Wind']],
+    fire: [['body', 'Fire'], ['crackle', 'Crackles']],
+    park: [['park', 'Park'], ['birds', 'Birdsong']]
+  };
+  /* How each mood starts. Layers run from 0 to 100, where 50 is the designed level. */
+  const DESIGNED = {
+    storm: { distance: 20, tone: -15, layers: { wind: 30 } },
+    park: { distance: 15, layers: { park: 38, birds: 62 } },
+    hill: { distance: 25 },
+    beach: { distance: 30, tone: -10 },
+    fire: { distance: 10, tone: -20 }
+  };
+  const designed = k => ({ distance: 0, tone: 0, bands: BANDS.map(() => 0), layers: {}, ...(DESIGNED[k] || {}) });
+  const adj = k => { const d = designed(k), a = S.adjust[k] || {}; return { ...d, ...a, bands: a.bands || d.bands, layers: { ...d.layers, ...(a.layers || {}) } }; };
+  const layerValue = (a, key) => a.layers[key] ?? 50;
+  const adjustable = k => k !== 'none';
   const LIMITS = { 0: 'No limit', 25: '25 min', 50: '50 min', 90: '90 min', custom: 'Custom' };
   const limitMin = () => S.limit === 'custom' ? S.customMin : +S.limit;
   const ROUNDS = { 0: 'Until I stop', 2: '2 rounds', 4: '4 rounds', 6: '6 rounds' };
@@ -127,7 +169,9 @@
     musicBus.connect(dry); dry.connect(far); far.connect(musicLevel);
     musicBus.connect(hall); hall.connect(wet); wet.connect(musicLevel);
     const alert = ctx.createGain(); alert.connect(limit);
-    A = { master, breathBus, musicLevel, musicBus, dry, wet, far, alert,
+    /* Distance sends each sound to its own echo, separate from Put music in the room. */
+    const distant = ctx.createConvolver(); distant.buffer = impulse(); distant.connect(musicLevel);
+    A = { master, breathBus, musicLevel, musicBus, dry, wet, far, alert, distant,
       cueNoise: loopBuffer(6, 1, white), brownBuf: null, whiteBuf: null };
     newCueBus();
     applyLevels();
@@ -263,10 +307,77 @@
     });
   }
 
+  /* Learned sounds: files made in advance from measurements of real recordings. They download the first time a mood is
+     chosen, start as soon as their main loops arrive, and are kept for the rest of the visit. */
+  const BYTES = {}, ASSET = {};
+  const RAIN_FILES = ['storm-outside', 'storm-glass', 'storm-metal'], ROLLS = [1, 2, 3, 4, 5, 6].map(i => 'thunder' + i);
+  const NEEDS = { window: RAIN_FILES, storm: [...RAIN_FILES, 'wind', ...ROLLS], park: ['park', 'thrush'], hill: ['wind'] };
+  const fileOf = n => 'sounds/' + n + (n === 'thrush' ? '.json' : n.startsWith('thunder') ? '.mp3' : '.wav');
+  function fetchBytes(n) {
+    return BYTES[n] || (BYTES[n] = fetch(fileOf(n)).then(r => { if (!r.ok) throw new Error(n); return n === 'thrush' ? r.json() : r.arrayBuffer(); })
+      .catch(e => { delete BYTES[n]; throw e; }));
+  }
+  function asset(n) {
+    if (ASSET[n]) return Promise.resolve(ASSET[n]);
+    return fetchBytes(n).then(b => n === 'thrush' ? b : new Promise((ok, fail) => ctx.decodeAudioData(b.slice(0), ok, fail))).then(x => (ASSET[n] = x));
+  }
+  const prefetch = k => (NEEDS[k] || []).forEach(n => fetchBytes(n).catch(() => {}));
+  /* Levels that sit the learned sounds alongside brown noise. */
+  const LEVEL = { rain: 5.5, thunder: 5.3, wind: 1.5, park: 1.4 };
+
+  /* Each sound runs through its own Distance, Tone and Fine tune before the music volume. */
+  function makeChain() {
+    const input = ctx.createGain(), warm = ctx.createBiquadFilter(), bright = ctx.createBiquadFilter(), near = ctx.createBiquadFilter();
+    const level = ctx.createGain(), send = ctx.createGain();
+    warm.type = 'lowshelf'; warm.frequency.value = 250; bright.type = 'highshelf'; bright.frequency.value = 3000; near.type = 'lowpass'; near.frequency.value = 20000;
+    const bands = BANDS.map(([type, f, q]) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (q) b.Q.value = q; return b; });
+    [input, warm, bright, ...bands, near, level].reduce((a, b) => { a.connect(b); return b; });
+    level.connect(A.musicBus); near.connect(send); send.gain.value = 0; send.connect(A.distant);
+    return { input, warm, bright, bands, near, level, send };
+  }
+  function applyAdjust(v, now) {
+    if (!v || !v.chain) return;
+    const a = adj(v.kind), c = v.chain, t = ctx.currentTime, set = (p, x) => now ? p.setValueAtTime(x, t) : p.setTargetAtTime(x, t, .08);
+    const d = a.distance / 100, tone = a.tone / 100;
+    set(c.warm.gain, -tone * 7); set(c.bright.gain, tone * 7);
+    a.bands.forEach((g, i) => set(c.bands[i].gain, g));
+    set(c.near.frequency, 20000 * Math.pow(2200 / 20000, d));
+    set(c.level.gain, 1 - .45 * d); set(c.send.gain, .9 * d);
+    Object.entries(v.layers).forEach(([key, g]) => set(g.gain, v.layerBase[key] * Math.pow(layerValue(a, key) / 50, 1.6)));
+  }
+
+  /* The song thrush: phrases traced from a recording, sung by a tone in a new order each time. */
+  function singer(J, to, spacing, level, start) {
+    const dt = J.dt, phrases = J.phrases.filter(p => p.length > 1), top = Math.max(...phrases.flatMap(p => p.flatMap(n => n[2])));
+    let at = start;
+    return (now, horizon) => { if (at < now) at = now + .1;
+      while (at < horizon) {
+        const p = phrases[Math.floor(Math.random() * phrases.length)], pan = ctx.createStereoPanner(); pan.pan.value = Math.random() * .8 - .4; pan.connect(to);
+        let end = at;
+        p.forEach(([off, fs, as, h]) => {
+          if (fs.length < 2) return;
+          const s0 = at + off, d = fs.length * dt, g = ctx.createGain(); g.gain.value = 0; g.connect(pan);
+          const amp = new Float32Array(as.length + 2); as.forEach((x, i) => { amp[i + 1] = level * Math.pow(10, (x - top) / 20); });
+          g.gain.setValueCurveAtTime(amp, s0, d + 2 * dt);
+          [[1, 1], [2, h[0]], [3, h[1]]].forEach(([k, w]) => { if (w < .04 || fs[0] * k > 15000) return;
+            const o = ctx.createOscillator(), og = ctx.createGain(); og.gain.value = Math.min(w, 1);
+            o.frequency.setValueCurveAtTime(Float32Array.from(fs, x => x * k), s0, d); o.connect(og); og.connect(g); o.start(s0); o.stop(s0 + d + 2 * dt + .02); });
+          end = Math.max(end, s0 + d);
+        });
+        at = end + Math.max(.3, J.gaps[Math.floor(Math.random() * J.gaps.length)]) * spacing * (.7 + Math.random() * .8);
+      } };
+  }
+
   function startVoice(kind) {
     const out = ctx.createGain(), t = ctx.currentTime; out.gain.setValueAtTime(0, t);
-    out.gain.linearRampToValueAtTime(1, t + 1.2); out.connect(A.musicBus);
-    const v = { out, stopped: false, sources: [], tick() {} };
+    out.gain.linearRampToValueAtTime(1, t + .4);
+    const v = { kind, out, stopped: false, sources: [], layers: {}, layerBase: {}, tick() {} };
+    if (adjustable(kind)) { v.chain = makeChain(); out.connect(v.chain.input); } else out.connect(A.musicBus);
+    const layer = (key, base) => { const g = ctx.createGain(); g.gain.value = 0; g.connect(out); v.layers[key] = g; v.layerBase[key] = base; return g; };
+    const failed = () => { if (!v.stopped && running) $('status').textContent = "Part of this sound couldn't load. Check your connection."; };
+    const loopAsset = (name, node) => asset(name).then(b => {
+      if (v.stopped) return; const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(node); s.start(ctx.currentTime, Math.random() * b.duration); v.sources.push(s);
+    }).catch(failed);
     const buffers = () => {
       A.brownBuf = A.brownBuf || loopBuffer(12, 2, brown);
       A.whiteBuf = A.whiteBuf || loopBuffer(11, 2, white);
@@ -318,7 +429,7 @@
     } else if (kind === 'fire') {
       const b = buffers(), lp = ctx.createBiquadFilter(), g = ctx.createGain(), hp = ctx.createBiquadFilter();
       lp.type = 'lowpass'; lp.frequency.value = 480; g.gain.value = .75; hp.type = 'highpass'; hp.frequency.value = 1500;
-      lp.connect(g); g.connect(out); hp.connect(out); looped(b.brown, lp);
+      lp.connect(g); g.connect(layer('body', 1)); hp.connect(layer('crackle', 1)); looped(b.brown, lp);
       let next = t + .2;
       v.tick = (now, horizon) => { if (next < now) next = now + .05;
         while (next < horizon) {
@@ -329,6 +440,32 @@
           next += -Math.log(1 - Math.random()) / 3;
         }
       };
+    } else if (kind === 'green') {
+      const f = ctx.createBiquadFilter(), g = ctx.createGain(); f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = .55; g.gain.value = 1.4;
+      f.connect(g); g.connect(out); looped(buffers().pink, f);
+    } else if (kind === 'window' || kind === 'storm') {
+      RAIN_FILES.forEach(n => loopAsset(n, layer(n.replace('storm-', ''), LEVEL.rain)));
+      if (kind === 'storm') {
+        loopAsset('wind', layer('wind', LEVEL.wind));
+        const thunder = layer('thunder', LEVEL.thunder); ROLLS.forEach(n => asset(n).catch(() => {}));
+        let roll = t + 3 + Math.random() * 3;
+        v.tick = (now, horizon) => { if (roll < now) roll = now + .1;
+          while (roll < horizon) {
+            const ready = ROLLS.map(n => ASSET[n]).filter(Boolean);
+            if (!ready.length) { roll += 1; continue; }
+            const b = ready[Math.floor(Math.random() * ready.length)], s = ctx.createBufferSource(), g = ctx.createGain();
+            g.gain.value = .6 + Math.random() * .4; s.buffer = b; s.connect(g); g.connect(thunder); s.start(roll); v.sources.push(s);
+            roll += b.duration + 15 + Math.random() * 30;
+          } };
+      }
+    } else if (kind === 'hill') {
+      loopAsset('wind', layer('wind', LEVEL.wind));
+    } else if (kind === 'park') {
+      loopAsset('park', layer('park', LEVEL.park * .9));
+      const birds = layer('birds', 1), echo = ctx.createDelay(1), back = ctx.createGain(), soft = ctx.createBiquadFilter(), bus = ctx.createGain();
+      echo.delayTime.value = .19; back.gain.value = .22; soft.type = 'lowpass'; soft.frequency.value = 4500;
+      bus.connect(birds); bus.connect(echo); echo.connect(soft); soft.connect(back); back.connect(echo); back.connect(birds);
+      asset('thrush').then(J => { if (!v.stopped) v.tick = singer(J, bus, .9, .075, ctx.currentTime + 1 + Math.random() * 2); }).catch(failed);
     } else if (kind === 'ambient') {
       const chords = [[50, 57, 62, 66, 69], [47, 54, 59, 62, 66], [43, 50, 57, 62, 66], [45, 52, 57, 61, 64]];
       let next = t + .1, i = 0;
@@ -353,6 +490,7 @@
       v.end = () => { try { src.disconnect(out); } catch (e) {} if (owner === v) { owner = null; player.pause(); } };
       playPiece();
     }
+    applyAdjust(v, true);
     return v;
   }
   function stopVoice(v) {
@@ -707,7 +845,8 @@
     $('breathOut').textContent = S.breathVol ? S.breathVol + '%' : 'Silent';
     $('musicOut').textContent = appMusic ? 'In your music app' : S.musicVol + '%';
     $('sum-pace').textContent = `${S.bpm} a minute, ${CUES[S.cue]}`;
-    $('sum-music').textContent = TRACKS[S.track][0];
+    $('sum-music').textContent = TRACKS[S.track][0] + (adjustable(S.track) && changed(S.track) ? ', adjusted' : '');
+    paintAdjust();
     $('sum-look').textContent = `${VISUALS[S.visual]}, ${PALETTES[S.palette].name}`;
     const lim = limitMin(), interval = S.mode === 'interval';
     if (!running) $('sessionSum').textContent = interval ? `Swell ${S.swellMin} · Rest ${S.restMin} min${+S.rounds ? ` · ${S.rounds} rounds` : ''}` : lim ? `${lim} min timer` : 'No time limit';
@@ -747,8 +886,12 @@
   /* On iPhone and iPad, a web app can't keep playing in the background while mixing with another app, so "My music app" stops
      whenever you switch to it. Hide it there until there's a native app. */
   const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (appleMobile) { delete TRACKS.none; if (S.track === 'none') S.track = 'classical'; }
-  chips($('track'), 'track', TRACKS, 'track', () => { setSession(); cuePiece(); paint(); refreshVoice(); });
+  if (appleMobile) { delete TRACKS.none; delete MUSICS.none; if (S.track === 'none') S.track = 'classical'; }
+  const onTrack = () => { setSession(); cuePiece(); prefetch(S.track); paint(); refreshVoice(); };
+  chips($('track-moods'), 'track', MOODS, 'track', onTrack);
+  chips($('track-noise'), 'track', NOISES, 'track', onTrack);
+  chips($('track-music'), 'track', MUSICS, 'track', onTrack);
+  prefetch(S.track);
   chips($('visual'), 'visual', VISUALS, 'visual', paint);
   chips($('palette'), 'palette', Object.fromEntries(Object.entries(PALETTES).map(([k, v]) => [k, v.name])), 'palette', paint);
 
@@ -775,11 +918,83 @@
   }
   const drawerOpen = () => $('sessionSheet').classList.contains('open');
   $('sessionBtn').addEventListener('click', () => setDrawer(true));
+
+  /* Adjust sound sheet: Distance and Tone, with Fine tune folded away until it's wanted. Changes are kept for each sound. */
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const bandsChanged = a => a.bands.some(g => g !== 0);
+  const layersChanged = k => (LAYERS[k] || []).some(([key]) => layerValue(adj(k), key) !== layerValue(designed(k), key));
+  const changed = k => { const a = adj(k), d = designed(k); return a.distance !== d.distance || a.tone !== d.tone || bandsChanged(a) || layersChanged(k); };
+  function summary(k) {
+    const a = adj(k), d = designed(k), parts = [];
+    if (a.distance !== d.distance) parts.push(a.distance > d.distance ? 'Further away' : 'Closer');
+    if (a.tone !== d.tone) parts.push(a.tone > d.tone ? 'brighter' : 'warmer');
+    (LAYERS[k] || []).forEach(([key, name]) => { const x = layerValue(a, key), y = layerValue(d, key);
+      if (Math.abs(x - y) > 8) parts.push((x > y ? 'more ' : 'less ') + name.toLowerCase()); });
+    if (bandsChanged(a)) parts.push('fine tuned');
+    if (!parts.length) return 'As designed';
+    const text = parts.slice(0, 3).join(', ') + (parts.length > 3 ? ' and more' : '');
+    return text[0].toUpperCase() + text.slice(1);
+  }
+  const fill = (el, lo, hi, prop = '--v') => el.style.setProperty(prop, (el.value - lo) / (hi - lo) * 100 + '%');
+  /* Boost and cut sliders fill outwards from the middle. */
+  const fillMid = el => { const v = (el.value - el.min) / (el.max - el.min) * 100; el.style.setProperty('--lo', Math.min(v, 50) + '%'); el.style.setProperty('--hi', Math.max(v, 50) + '%'); };
+  function store(k, change) { const a = adj(k); change(a); const d = designed(k);
+    const keep = {}; ['distance', 'tone'].forEach(x => { if (a[x] !== d[x]) keep[x] = a[x]; });
+    if (bandsChanged(a)) keep.bands = a.bands;
+    const layers = {}; Object.entries(a.layers).forEach(([key, x]) => { if (x !== layerValue(d, key)) layers[key] = x; });
+    if (Object.keys(layers).length) keep.layers = layers;
+    if (Object.keys(keep).length) S.adjust[k] = keep; else delete S.adjust[k];
+    save(); if (voice && voice.kind === k) applyAdjust(voice);
+    $('adjustSum').textContent = summary(k); $('fineSum').textContent = fineText(k);
+    $('sum-music').textContent = TRACKS[S.track][0] + (changed(S.track) ? ', adjusted' : '');
+  }
+  const fineText = k => { const a = adj(k), n = (layersChanged(k) ? 1 : 0) + (bandsChanged(a) ? 1 : 0);
+    return n ? (layersChanged(k) && bandsChanged(a) ? 'Mix and frequencies changed' : layersChanged(k) ? 'Mix changed' : 'Frequencies changed') : 'Not changed'; };
+  function paintAdjust() {
+    const k = S.track; $('adjustBtn').hidden = !adjustable(k);
+    if (!adjustable(k)) return;
+    const a = adj(k);
+    $('adjustTitle').textContent = TRACKS[k][0]; $('adjustSum').textContent = summary(k); $('fineSum').textContent = fineText(k);
+    $('adjDistance').value = a.distance; fill($('adjDistance'), 0, 100);
+    $('adjTone').value = a.tone; fill($('adjTone'), -100, 100);
+    const box = $('layers'); box.textContent = '';
+    if (LAYERS[k]) { const h = document.createElement('p'); h.className = 'group-label'; h.textContent = 'Mix'; box.append(h); }
+    (LAYERS[k] || []).forEach(([key, name]) => {
+      const row = document.createElement('div'), label = document.createElement('label'), input = document.createElement('input');
+      row.className = 'row'; label.htmlFor = 'layer-' + key; label.textContent = name;
+      Object.assign(input, { type: 'range', min: 0, max: 100, step: 1, id: 'layer-' + key, value: layerValue(a, key) }); fill(input, 0, 100);
+      input.addEventListener('input', () => { fill(input, 0, 100); store(k, x => { x.layers[key] = +input.value; }); });
+      row.append(label, input); box.append(row);
+    });
+    const faders = $('faders'); faders.textContent = '';
+    const db = x => x > 0 ? '+' + x : x < 0 ? '−' + -x : '0';
+    BANDS.forEach((f, i) => {
+      const row = document.createElement('div'), label = document.createElement('label'), out = document.createElement('output'), input = document.createElement('input');
+      row.className = 'row'; label.htmlFor = 'band-' + i; label.textContent = BAND_NAMES[i] + ' '; out.textContent = db(a.bands[i]); label.append(out);
+      Object.assign(input, { type: 'range', min: -12, max: 12, step: 1, id: 'band-' + i, value: a.bands[i] }); fillMid(input);
+      input.addEventListener('input', () => { fillMid(input); out.textContent = db(+input.value);
+        store(k, x => { x.bands = [...x.bands]; x.bands[i] = +input.value; }); });
+      row.append(label, input); faders.append(row);
+    });
+  }
+  $('adjDistance').addEventListener('input', e => { fill(e.target, 0, 100); store(S.track, x => { x.distance = +e.target.value; }); });
+  $('adjTone').addEventListener('input', e => { fill(e.target, -100, 100); store(S.track, x => { x.tone = +e.target.value; }); });
+  $('fineBtn').addEventListener('click', () => { const open = $('fine').hidden; $('fine').hidden = !open; $('fineBtn').setAttribute('aria-expanded', String(open)); });
+  $('adjustReset').addEventListener('click', () => { delete S.adjust[S.track]; save(); if (voice && voice.kind === S.track) applyAdjust(voice); paint(); });
+  function setAdjust(open) {
+    if (open) { paintAdjust(); $('fine').hidden = true; $('fineBtn').setAttribute('aria-expanded', 'false'); }
+    $('adjustSheet').classList.toggle('open', open); $('scrim').classList.toggle('open', open);
+    $('app').inert = open; $('adjustBtn').setAttribute('aria-expanded', String(open));
+    if (open) setTimeout(() => $('adjustSheet').focus(), 50); else if (usingKeys) $('adjustBtn').focus();
+  }
+  const adjustOpen = () => $('adjustSheet').classList.contains('open');
+  $('adjustBtn').addEventListener('click', () => setAdjust(true));
+  $('adjustDone').addEventListener('click', () => setAdjust(false));
   $('sessionDone').addEventListener('click', () => setDrawer(false));
-  $('scrim').addEventListener('click', () => setDrawer(false));
+  $('scrim').addEventListener('click', () => { if (adjustOpen()) setAdjust(false); else setDrawer(false); });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (drawerOpen()) setDrawer(false); else if (innerWidth < 900) setSheet(false);
+    if (adjustOpen()) setAdjust(false); else if (drawerOpen()) setDrawer(false); else if (innerWidth < 900) setSheet(false);
   });
   const backOnScreen = () => { if (running && !document.hidden) { lockScreen(); tryResume(); } };
   document.addEventListener('visibilitychange', backOnScreen);
