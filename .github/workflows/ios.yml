@@ -28,3 +28,26 @@ jobs:
           -sdk iphonesimulator
           -configuration Debug
           CODE_SIGNING_ALLOWED=NO
+      # Opens the app on an iPad and an iPhone simulator, with each panel open, and keeps screenshots for checking the
+      # layout. The debug build opens a panel by itself when SWELLOTIC_OPEN is set (see ContentView).
+      - name: Screenshots on iPad and iPhone
+        run: |
+          APP=$(find build -name Swellotic.app -path "*iphonesimulator*" | head -1)
+          mkdir -p screenshots
+          for kind in iPad iPhone; do
+            UDID=$(xcrun simctl list devices available -j | python3 -c "import sys, json; d = json.load(sys.stdin)['devices']; print(next(x['udid'] for r, v in sorted(d.items(), reverse=True) for x in v if x['name'].startswith('$kind') and 'Pro' in x['name']))")
+            xcrun simctl boot "$UDID"
+            xcrun simctl bootstatus "$UDID" -b
+            xcrun simctl install "$UDID" "$APP"
+            for panel in none settings session; do
+              SIMCTL_CHILD_SWELLOTIC_OPEN=$panel xcrun simctl launch --terminate-running-process "$UDID" com.swellotic.app
+              sleep 8
+              xcrun simctl io "$UDID" screenshot "screenshots/$kind-$panel.png"
+            done
+            xcrun simctl shutdown "$UDID"
+          done
+      - name: Keep the screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: ios/screenshots

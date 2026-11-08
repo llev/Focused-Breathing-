@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var showSession = false
     @State private var showSplash = true
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         ZStack {
@@ -18,6 +19,14 @@ struct ContentView: View {
                 PhaseLabel(model: model) { showSession = true }
                     .opacity(showSplash ? 0 : 1)
                     .animation(.easeInOut(duration: 0.6), value: showSplash)
+                    // On iPad and Mac, Session is a popover by its button. On iPhone it becomes a sheet.
+                    .popover(isPresented: $showSession) {
+                        SessionSheet(model: model) { showSession = false }
+                            .frame(minWidth: sizeClass == .regular ? 400 : nil, minHeight: sizeClass == .regular ? 560 : nil)
+                            .presentationCompactAdaptation(.sheet)
+                            .presentationDetents([.medium, .large])
+                            .presentationDragIndicator(.visible)
+                    }
                 Spacer(minLength: 0)
                 footer
             }
@@ -27,16 +36,22 @@ struct ContentView: View {
                 SplashView { showSplash = false }
             }
         }
-        .sheet(isPresented: $showSettings) {
-            SettingsSheet(model: model)
+        // On iPad and Mac, Settings is a side panel, so the scene and player bar stay in view, as in the web app on wide
+        // screens. On iPhone the same panel becomes a sheet from the bottom.
+        .inspector(isPresented: $showSettings) {
+            SettingsSheet(model: model) { showSettings = false }
+                .inspectorColumnWidth(min: 340, ideal: 400, max: 480)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showSession) {
-            SessionSheet(model: model)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+        #if DEBUG
+        // Lets GitHub Actions open a panel by itself for screenshots, after the launch screen. Never in release builds.
+        .task {
+            guard let panel = ProcessInfo.processInfo.environment["SWELLOTIC_OPEN"] else { return }
+            try? await Task.sleep(for: .seconds(3))
+            if panel == "settings" { showSettings = true } else if panel == "session" { showSession = true }
         }
+        #endif
         .onChange(of: scenePhase) { _, phase in model.scenePhaseChanged(phase) }
         .preferredColorScheme(.dark)
         .tint(model.tint)
@@ -73,7 +88,7 @@ struct ContentView: View {
             if model.settings.track == .classical {
                 NowPlayingStrip(model: model, library: model.library)
             }
-            PlayerBar(model: model) { showSettings = true }
+            PlayerBar(model: model) { showSettings.toggle() }
         }
     }
 }

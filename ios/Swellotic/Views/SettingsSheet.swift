@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsSheet: View {
     @ObservedObject var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    /// Closes the panel. Side panels and popovers are closed by their owner, so it's passed in.
+    var close: (() -> Void)? = nil
 
     var body: some View {
         let s = model.settings
@@ -27,7 +29,7 @@ struct SettingsSheet: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { if let close { close() } else { dismiss() } } }
             }
         }
     }
