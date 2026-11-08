@@ -229,12 +229,18 @@ final class AudioController {
         for slot in track.soundSlots where !bank.isReady(slot) && !loading.contains(slot.rawValue) {
             guard let url = Self.bundled(slot.fileName, slot.fileExtension) else { continue }
             loading.insert(slot.rawValue)
-            Task.detached(priority: .userInitiated) { Self.decode(url, into: bank, slot: slot) }
+            let key = slot.rawValue
+            Task.detached(priority: .userInitiated) { [weak self] in
+                // If a file fails to decode, forget it was loading, so choosing the mood again tries once more.
+                guard !Self.decode(url, into: bank, slot: slot) else { return }
+                await MainActor.run { _ = self?.loading.remove(key) }
+            }
         }
         if track == .park && !bank.hasThrush && !thrushLoading, let url = Self.bundled("thrush", "json") {
             thrushLoading = true
-            Task.detached(priority: .userInitiated) {
-                if let data = try? Data(contentsOf: url), let song = ThrushSong(json: data) { bank.publish(song) }
+            Task.detached(priority: .userInitiated) { [weak self] in
+                if let data = try? Data(contentsOf: url), let song = ThrushSong(json: data) { bank.publish(song); return }
+                await MainActor.run { self?.thrushLoading = false }
             }
         }
     }
@@ -243,12 +249,13 @@ final class AudioController {
         Bundle.main.url(forResource: name, withExtension: ext) ?? Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Sounds")
     }
 
-    /// Reads a whole file into 16-bit stereo, which halves the memory of keeping it as floats.
-    nonisolated private static func decode(_ url: URL, into bank: SoundBank, slot: SoundBank.Slot) {
-        guard let file = try? AVAudioFile(forReading: url) else { return }
+    /// Reads a whole file into 16-bit stereo, which halves the memory of keeping it as floats. Returns false if it failed.
+    @discardableResult
+    nonisolated private static func decode(_ url: URL, into bank: SoundBank, slot: SoundBank.Slot) -> Bool {
+        guard let file = try? AVAudioFile(forReading: url) else { return false }
         let format = file.processingFormat
         let capacity = Int(file.length) + 4096
-        guard capacity > 4096, let chunk = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 16_384) else { return }
+        guard capacity > 4096, let chunk = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 16_384) else { return false }
         let out = UnsafeMutablePointer<Int16>.allocate(capacity: capacity * 2)
         var written = 0
         while written < capacity {
@@ -262,8 +269,9 @@ final class AudioController {
             }
             written += n
         }
-        guard written > 1 else { out.deallocate(); return }
+        guard written > 1 else { out.deallocate(); return false }
         bank.publish(slot, samples: out, frames: written, rate: format.sampleRate)
+        return true
     }
 
     /// "Put sounds in the room" keeps the breath close and makes the sounds seem further away.

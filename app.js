@@ -4,7 +4,7 @@
   try { Object.assign(S, JSON.parse(localStorage.getItem('breathing-room') || '{}')); } catch (e) {}
   /* "Audio files" was replaced by the classical mix. */
   if (S.track === 'own') S.track = 'classical';
-  /* Prototype: Rain and Wind became moods. */
+  /* Rain and Wind became moods. */
   if (S.track === 'rain') S.track = 'window';
   if (S.track === 'wind') S.track = 'hill';
   /* First light's sound became Winter park. */
@@ -63,8 +63,8 @@
   const TRACKS = { ...MOODS, ...NOISES, ...MUSICS };
   if (!TRACKS[S.track]) S.track = 'brown';
 
-  /* Adjust sound: every sound but My music app has Distance and Tone. Fine tune holds its layers, if it has any, and eight frequency bands. */
-  /* Fine tune: a low shelf, a broad middle and a high shelf. */
+  /* Adjust sound: every sound but My music app has Distance and Tone. Fine tune holds its layers, if it has any, and three
+     frequency bands: a low shelf, a broad middle and a high shelf. */
   const BANDS = [['lowshelf', 200, 0], ['peaking', 1000, .7], ['highshelf', 4000, 0]];
   const BAND_NAMES = ['Low', 'Middle', 'High'];
   const RAIN = [['glass', 'Rain on glass'], ['metal', 'Taps on metal'], ['outside', 'Rain outside']];
@@ -170,7 +170,7 @@
     musicBus.connect(dry); dry.connect(far); far.connect(musicLevel);
     musicBus.connect(hall); hall.connect(wet); wet.connect(musicLevel);
     const alert = ctx.createGain(); alert.connect(limit);
-    /* Distance sends each sound to its own echo, separate from Put music in the room. */
+    /* Distance sends each sound to its own echo, separate from Put sounds in the room. */
     const distant = ctx.createConvolver(); distant.buffer = impulse(); distant.connect(musicLevel);
     A = { master, breathBus, musicLevel, musicBus, dry, wet, far, alert, distant,
       cueNoise: loopBuffer(6, 1, white), brownBuf: null, whiteBuf: null };
@@ -313,7 +313,7 @@
   const BYTES = {}, ASSET = {};
   const RAIN_FILES = ['storm-outside', 'storm-glass', 'storm-metal'], ROLLS = [1, 2, 3, 4, 5, 6].map(i => 'thunder' + i);
   const NEEDS = { window: RAIN_FILES, storm: [...RAIN_FILES, 'wind', ...ROLLS], park: ['park', 'thrush'], hill: ['wind'] };
-  const fileOf = n => 'sounds/' + n + (n === 'thrush' ? '.json' : n.startsWith('thunder') ? '.mp3' : '.wav');
+  const fileOf = n => 'sounds/' + n + (n === 'thrush' ? '.json' : n.startsWith('thunder') ? '.mp3' : '.flac');
   function fetchBytes(n) {
     return BYTES[n] || (BYTES[n] = fetch(fileOf(n)).then(r => { if (!r.ok) throw new Error(n); return n === 'thrush' ? r.json() : r.arrayBuffer(); })
       .catch(e => { delete BYTES[n]; throw e; }));

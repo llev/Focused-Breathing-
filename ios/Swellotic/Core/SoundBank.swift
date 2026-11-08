@@ -23,7 +23,7 @@ final class SoundBank: @unchecked Sendable {
             }
         }
 
-        var fileExtension: String { rawValue >= Slot.thunder1.rawValue ? "mp3" : "wav" }
+        var fileExtension: String { rawValue >= Slot.thunder1.rawValue ? "mp3" : "flac" }
 
         static let thunder: [Slot] = [.thunder1, .thunder2, .thunder3, .thunder4, .thunder5, .thunder6]
     }

@@ -194,6 +194,8 @@ final class ParkSound: MusicGenerator {
     private var noise = Noise(seed: 0x9A4)
     private var park = LoopLayer(.park, base: LearnedLevel.park)
     private var thrush: ThrushSinger
+    /// The thrush's phrases, looked up now and then rather than every sample, once they've loaded.
+    private var song: ThrushSong?
     private var gains: LayerGains
     private var counter = 0
 
@@ -211,11 +213,13 @@ final class ParkSound: MusicGenerator {
         if counter == 0 {
             gains.read(controls)
             park.poll(controls.sounds, noise: &noise)
+            if song == nil { song = controls.sounds.thrush() }
         }
         counter = (counter + 1) & 255
         let g = gains.next()
         let p = park.next(sampleRate: sr)
-        let b = controls.sounds.thrush().map { thrush.next(song: $0) } ?? (0, 0)
+        var b = (0.0, 0.0)
+        if let s = song { b = thrush.next(song: s) }
         return (p.0 * g[0] + b.0 * g[1], p.1 * g[0] + b.1 * g[1])
     }
 }

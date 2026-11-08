@@ -257,7 +257,7 @@ legend { padding: 0; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
   .splash-wave.two { opacity: .85 !important; }
 }
 
-/* Prototype: Adjust sound row and sheet. */
+/* Adjust sound: the row under the sound choices, and the sheet it opens. */
 .adjust-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 12px; border-radius: 16px; text-align: left;
   background: rgba(255, 255, 255, .07); border: 1px solid var(--hair); color: var(--ink); }
 .adjust-row[hidden] { display: none; }

@@ -4,7 +4,7 @@
 
 A breathing guide with music or ambient sound, and a separate volume for each. It's designed to run quietly in the background while you work, including on one pair of headphones on a train or in an office.
 
-> **Status:** working prototype. It can be installed and works offline, but it isn't hosted anywhere yet. See [docs/ROADMAP.md](docs/ROADMAP.md) for the work left before launch.
+> **Status:** live at [swellotic.com](https://swellotic.com), with an iPhone app on the way. It can be installed and works offline. See [docs/ROADMAP.md](docs/ROADMAP.md) for the work left before launch.
 
 ## What it does
 
