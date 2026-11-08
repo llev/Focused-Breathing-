@@ -104,6 +104,8 @@ struct Settings: Codable, Equatable {
     var showWords = true
     var countdown = false
     var openSections: Set<String> = ["breathing"]
+    /// Sections closed in the iPad and Mac side panel, where there's room for all of them to start open.
+    var closedInPanel: Set<String> = []
     /// Adjust sound settings, by the track's number, for sounds that have been changed.
     var adjust: [String: SoundAdjust] = [:]
 
@@ -158,6 +160,7 @@ struct Settings: Codable, Equatable {
         showWords = v(.showWords, d.showWords)
         countdown = v(.countdown, d.countdown)
         openSections = v(.openSections, d.openSections)
+        closedInPanel = v(.closedInPanel, d.closedInPanel)
         adjust = v(.adjust, d.adjust)
     }
 

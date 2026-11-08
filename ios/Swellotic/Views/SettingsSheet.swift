@@ -5,6 +5,9 @@ struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     /// Closes the panel. Side panels and popovers are closed by their owner, so it's passed in.
     var close: (() -> Void)? = nil
+    /// True in the iPad and Mac side panel. Every section starts open there, and closing one is remembered apart
+    /// from the iPhone sheet's open sections.
+    var sidePanel = false
 
     var body: some View {
         let s = model.settings
@@ -35,10 +38,16 @@ struct SettingsSheet: View {
     }
 
     private func open(_ key: String) -> Binding<Bool> {
-        Binding(get: { model.settings.openSections.contains(key) },
-                set: { isOpen in
-                    if isOpen { model.settings.openSections.insert(key) } else { model.settings.openSections.remove(key) }
-                })
+        if sidePanel {
+            return Binding(get: { !model.settings.closedInPanel.contains(key) },
+                           set: { isOpen in
+                               if isOpen { model.settings.closedInPanel.remove(key) } else { model.settings.closedInPanel.insert(key) }
+                           })
+        }
+        return Binding(get: { model.settings.openSections.contains(key) },
+                       set: { isOpen in
+                           if isOpen { model.settings.openSections.insert(key) } else { model.settings.openSections.remove(key) }
+                       })
     }
 
     private func breathing(_ s: Settings, _ tint: Color) -> some View {

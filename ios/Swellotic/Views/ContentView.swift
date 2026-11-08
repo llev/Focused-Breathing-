@@ -39,7 +39,7 @@ struct ContentView: View {
         // On iPad and Mac, Settings is a side panel, so the scene and player bar stay in view, as in the web app on wide
         // screens. On iPhone the same panel becomes a sheet from the bottom.
         .inspector(isPresented: $showSettings) {
-            SettingsSheet(model: model) { showSettings = false }
+            SettingsSheet(model: model, close: { showSettings = false }, sidePanel: sizeClass == .regular)
                 .inspectorColumnWidth(min: 340, ideal: 400, max: 480)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
