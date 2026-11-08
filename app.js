@@ -75,6 +75,7 @@
   };
   /* How each mood starts. Layers run from 0 to 100, where 50 is the designed level. */
   const DESIGNED = {
+    window: { tone: -60 },  /* much warmer than Night storm, so the two rain moods sound different before any thunder */
     storm: { distance: 20, tone: -15, layers: { wind: 30 } },
     park: { distance: 15, layers: { park: 38, birds: 62 } },
     hill: { distance: 25 },
