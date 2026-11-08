@@ -8,7 +8,7 @@
    offers "Tap to update" when nothing is playing, and the new version also
    takes over by itself the next time the app is fully closed and reopened.
    It never swaps files in the middle of a session. */
-const VERSION = '20';
+const VERSION = '21';
 const CACHE = 'swellotic-' + VERSION;
 /* Classical recordings kept for offline use. This store is not versioned, so app updates don't throw saved music away. */
 const MUSIC = 'swellotic-music';
@@ -20,6 +20,7 @@ const FILES = [
   'index.html',
   'styles.css',
   'app.js',
+  'sound-worklet.js',
   'manifest.webmanifest',
   'classical.json',
   'privacy.html',
@@ -84,6 +85,11 @@ self.addEventListener('fetch', event => {
 async function music(req) {
   const hit = await (await caches.open(MUSIC)).match(req.url);
   if (!hit) return fetch(req);
+  return part(hit, req);
+}
+
+/* Answers a request for part of a kept file, as phones make for audio, or the whole file if no part was asked for. */
+async function part(hit, req) {
   const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get('range') || '');
   if (!range) return hit;
   const blob = await hit.blob(), size = blob.size;
@@ -102,11 +108,16 @@ async function music(req) {
   });
 }
 
-/* Learned sounds: served from the store once kept, otherwise downloaded and kept for next time. */
+/* Learned sounds: served from the store once kept, otherwise downloaded whole and kept for next time. Thunder streams
+   through an audio player, which asks for parts, so those are answered from the whole file. */
 async function sound(req) {
-  const store = await caches.open(SOUNDS), hit = await store.match(req, { ignoreSearch: true });
-  if (hit) return hit;
-  const res = await fetch(req);
-  if (res.ok && res.status === 200) store.put(req, res.clone()).catch(() => {});
-  return res;
+  const store = await caches.open(SOUNDS);
+  let hit = await store.match(req.url, { ignoreSearch: true });
+  if (!hit) {
+    const res = await fetch(req.url);
+    if (!res.ok || res.status !== 200) return res;
+    await store.put(req.url, res.clone()).catch(() => {});
+    hit = res;
+  }
+  return part(hit, req);
 }

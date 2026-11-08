@@ -57,6 +57,8 @@ A native iPhone version is in [`ios/`](ios/README.md). It keeps playing when the
 | `icons/` | App icons, drawn in `icon.svg` |
 | `fonts/` | Bundled fonts and their licences |
 | `classical.json` | The Classical mix: each piece's file, title, performer and Commons source |
+| `sound-worklet.js` | Plays the learned sounds from compact copies on the audio thread |
+| `functions/audio/`, `functions/sounds/` | Let Safari stream the Classical mix and thunder, by answering requests for part of a file. Run on Cloudflare Pages |
 | `functions/ingest.js` | Passes the web app's anonymous counts on to PostHog, without IP addresses. Runs on Cloudflare Pages |
 | `tools/fetch-classical.mjs` | Downloads the Classical mix recordings into `audio/classical/` |
 | `tools/make-voice.mjs` | Makes the spoken words clips with Azure AI Speech. Run once, not part of the app |

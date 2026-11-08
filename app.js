@@ -174,6 +174,12 @@
     const distant = ctx.createConvolver(); distant.buffer = impulse(); distant.connect(musicLevel);
     A = { master, breathBus, musicLevel, musicBus, dry, wet, far, alert, distant,
       cueNoise: loopBuffer(6, 1, white), brownBuf: null, whiteBuf: null };
+    /* The worklet that plays the learned sounds. Loops decoded before the first tap are handed over as soon as it's ready. */
+    A.ready = ctx.audioWorklet
+      ? ctx.audioWorklet.addModule('sound-worklet.js').then(() => {
+        A.bank = new AudioWorkletNode(ctx, 'swellotic-bank', { numberOfInputs: 0, numberOfOutputs: 1 }); sendClips(); })
+      : Promise.reject(new Error('This browser can\'t play the learned sounds.'));
+    A.ready.catch(() => {});
     newCueBus();
     applyLevels();
     loadClips();
@@ -308,21 +314,57 @@
     });
   }
 
-  /* Learned sounds: files made in advance from measurements of real recordings. They download the first time a mood is
-     chosen, start as soon as their main loops arrive, and are kept for the rest of the visit. */
-  const BYTES = {}, ASSET = {};
+  /* Learned sounds: files made in advance from measurements of real recordings.
+     Each loop is decoded once into a compact 16-bit copy at the rate it was made at, then handed to sound-worklet.js, which
+     plays it on the audio thread, as the iPhone app does. Thunder rolls play straight from their files. Together that keeps
+     Night storm to about 16MB, where decoding everything the usual way took about 120MB.
+     The current sound's files are fetched and decoded as the app opens, behind the launch screen, so they're ready by play. */
   const RAIN_FILES = ['storm-outside', 'storm-glass', 'storm-metal'], ROLLS = [1, 2, 3, 4, 5, 6].map(i => 'thunder' + i);
-  const NEEDS = { window: RAIN_FILES, storm: [...RAIN_FILES, 'wind', ...ROLLS], park: ['park', 'thrush'], hill: ['wind'] };
+  const LOOPS = { window: RAIN_FILES, storm: [...RAIN_FILES, 'wind'], park: ['park'], hill: ['wind'] };
+  /* The rate each loop was made at, so decoding doesn't stretch it to the device's rate. */
+  const RATE = { 'storm-outside': 44100, 'storm-glass': 44100, 'storm-metal': 44100, park: 44100, wind: 22050 };
   const fileOf = n => 'sounds/' + n + (n === 'thrush' ? '.json' : n.startsWith('thunder') ? '.mp3' : '.flac');
-  function fetchBytes(n) {
-    return BYTES[n] || (BYTES[n] = fetch(fileOf(n)).then(r => { if (!r.ok) throw new Error(n); return n === 'thrush' ? r.json() : r.arrayBuffer(); })
-      .catch(e => { delete BYTES[n]; throw e; }));
+  const DECODING = {}, READY = {}, SENT = new Set();
+  /* Decoding needs no sound to be playing, so it runs before the first tap, in a context that never makes a sound. */
+  function compact(n) {
+    return DECODING[n] || (DECODING[n] = fetch(fileOf(n)).then(r => { if (!r.ok) throw new Error(n); return r.arrayBuffer(); })
+      .then(bytes => new Promise((ok, fail) => {
+        const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        new OAC(2, 1, RATE[n]).decodeAudioData(bytes, ok, fail);
+      }))
+      .then(b => {
+        const l = b.getChannelData(0), r = b.numberOfChannels > 1 ? b.getChannelData(1) : l, out = new Int16Array(b.length * 2);
+        const to16 = x => Math.max(-32767, Math.min(32767, Math.round(x * 32767)));
+        for (let i = 0; i < b.length; i++) { out[2 * i] = to16(l[i]); out[2 * i + 1] = to16(r[i]); }
+        READY[n] = { name: n, rate: b.sampleRate, frames: b.length, data: out.buffer };
+        sendClips();
+      })
+      .catch(e => { delete DECODING[n]; throw e; }));
   }
-  function asset(n) {
-    if (ASSET[n]) return Promise.resolve(ASSET[n]);
-    return fetchBytes(n).then(b => n === 'thrush' ? b : new Promise((ok, fail) => ctx.decodeAudioData(b.slice(0), ok, fail))).then(x => (ASSET[n] = x));
+  /* Hands decoded loops to the worklet once it's running. The data moves rather than copies, so it's only held once. */
+  function sendClips() {
+    if (!A || !A.bank) return;
+    Object.values(READY).forEach(c => { if (SENT.has(c.name)) return; SENT.add(c.name); A.bank.port.postMessage(c, [c.data]); delete READY[c.name]; });
   }
-  const prefetch = k => (NEEDS[k] || []).forEach(n => fetchBytes(n).catch(() => {}));
+  let thrushSong = null;
+  const thrush = () => thrushSong || (thrushSong = fetch(fileOf('thrush')).then(r => { if (!r.ok) throw new Error('thrush'); return r.json(); })
+    .catch(e => { thrushSong = null; throw e; }));
+  /* Thunder rolls play one at a time through this player, so they're never held decoded. Phones only let audio start from a
+     tap, so it's started silently from one; it only reaches the speakers through Night storm. */
+  const rollPlayer = new Audio(); rollPlayer.preload = 'auto';
+  function rollSource() { if (!A.rolls) A.rolls = ctx.createMediaElementSource(rollPlayer); return A.rolls; }
+  function unlockRolls() {
+    if (!A || A.rollsUnlocked) return;
+    rollSource(); A.rollsUnlocked = true;
+    if (!rollPlayer.src) rollPlayer.src = fileOf(ROLLS[0]);
+    rollPlayer.play().then(() => { if (!rollPlayer.dataset.rolling) rollPlayer.pause(); }, () => { A.rollsUnlocked = false; });
+  }
+  function preload(k) {
+    (LOOPS[k] || []).forEach(n => compact(n).catch(() => {}));
+    if (k === 'park') thrush().catch(() => {});
+    /* Thunder is fetched once so the service worker keeps it for offline use; nothing here holds on to it. */
+    if (k === 'storm') ROLLS.forEach(n => fetch(fileOf(n)).catch(() => {}));
+  }
   /* Levels that sit the learned sounds alongside brown noise. */
   const LEVEL = { rain: 5.5, thunder: 5.3, wind: 1.5, park: 1.4 };
 
@@ -376,9 +418,14 @@
     if (adjustable(kind)) { v.chain = makeChain(); out.connect(v.chain.input); } else out.connect(A.musicBus);
     const layer = (key, base) => { const g = ctx.createGain(); g.gain.value = 0; g.connect(out); v.layers[key] = g; v.layerBase[key] = base; return g; };
     const failed = () => { if (!v.stopped && running) $('status').textContent = "Part of this sound couldn't load. Check your connection."; };
-    const loopAsset = (name, node) => asset(name).then(b => {
-      if (v.stopped) return; const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(node); s.start(ctx.currentTime, Math.random() * b.duration); v.sources.push(s);
-    }).catch(failed);
+    const loopClip = (name, node) => {
+      compact(name).catch(failed);
+      A.ready.then(() => {
+        if (v.stopped) return;
+        const w = new AudioWorkletNode(ctx, 'swellotic-loop', { numberOfInputs: 0, outputChannelCount: [2], processorOptions: { name, offset: Math.random() } });
+        w.connect(node); v.sources.push({ stop() { w.port.postMessage('stop'); w.disconnect(); } });
+      }).catch(failed);
+    };
     const buffers = () => {
       A.brownBuf = A.brownBuf || loopBuffer(12, 2, brown);
       A.whiteBuf = A.whiteBuf || loopBuffer(11, 2, white);
@@ -445,28 +492,31 @@
       const f = ctx.createBiquadFilter(), g = ctx.createGain(); f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = .55; g.gain.value = 1.4;
       f.connect(g); g.connect(out); looped(buffers().pink, f);
     } else if (kind === 'window' || kind === 'storm') {
-      RAIN_FILES.forEach(n => loopAsset(n, layer(n.replace('storm-', ''), LEVEL.rain)));
+      RAIN_FILES.forEach(n => loopClip(n, layer(n.replace('storm-', ''), LEVEL.rain)));
       if (kind === 'storm') {
-        loopAsset('wind', layer('wind', LEVEL.wind));
-        const thunder = layer('thunder', LEVEL.thunder); ROLLS.forEach(n => asset(n).catch(() => {}));
-        let roll = t + 3 + Math.random() * 3;
-        v.tick = (now, horizon) => { if (roll < now) roll = now + .1;
-          while (roll < horizon) {
-            const ready = ROLLS.map(n => ASSET[n]).filter(Boolean);
-            if (!ready.length) { roll += 1; continue; }
-            const b = ready[Math.floor(Math.random() * ready.length)], s = ctx.createBufferSource(), g = ctx.createGain();
-            g.gain.value = .6 + Math.random() * .4; s.buffer = b; s.connect(g); g.connect(thunder); s.start(roll); v.sources.push(s);
-            roll += b.duration + 15 + Math.random() * 30;
-          } };
+        loopClip('wind', layer('wind', LEVEL.wind));
+        /* One roll at a time, with 15 to 45 seconds of rain between them. */
+        const roll = ctx.createGain(); roll.gain.value = 0; roll.connect(layer('thunder', LEVEL.thunder)); rollSource().connect(roll);
+        let next = t + 3 + Math.random() * 3, rolling = false;
+        const done = () => { rolling = false; delete rollPlayer.dataset.rolling; next = ctx.currentTime + 15 + Math.random() * 30; };
+        rollPlayer.onended = done;
+        v.tick = now => {
+          if (rolling || now < next) return;
+          rolling = true; rollPlayer.dataset.rolling = '1';
+          rollPlayer.src = fileOf(ROLLS[Math.floor(Math.random() * ROLLS.length)]);
+          roll.gain.setValueAtTime(.6 + Math.random() * .4, ctx.currentTime);
+          rollPlayer.play().catch(() => { done(); next = now + 10; });
+        };
+        v.end = () => { rollPlayer.onended = null; delete rollPlayer.dataset.rolling; rollPlayer.pause(); try { rollSource().disconnect(roll); } catch (e) {} };
       }
     } else if (kind === 'hill') {
-      loopAsset('wind', layer('wind', LEVEL.wind));
+      loopClip('wind', layer('wind', LEVEL.wind));
     } else if (kind === 'park') {
-      loopAsset('park', layer('park', LEVEL.park * .9));
+      loopClip('park', layer('park', LEVEL.park * .9));
       const birds = layer('birds', 1), echo = ctx.createDelay(1), back = ctx.createGain(), soft = ctx.createBiquadFilter(), bus = ctx.createGain();
       echo.delayTime.value = .19; back.gain.value = .22; soft.type = 'lowpass'; soft.frequency.value = 4500;
       bus.connect(birds); bus.connect(echo); echo.connect(soft); soft.connect(back); back.connect(echo); back.connect(birds);
-      asset('thrush').then(J => { if (!v.stopped) v.tick = singer(J, bus, .9, .075, ctx.currentTime + 1 + Math.random() * 2); }).catch(failed);
+      thrush().then(J => { if (!v.stopped) v.tick = singer(J, bus, .9, .075, ctx.currentTime + 1 + Math.random() * 2); }).catch(failed);
     } else if (kind === 'ambient') {
       const chords = [[50, 57, 62, 66, 69], [47, 54, 59, 62, 66], [43, 50, 57, 62, 66], [45, 52, 57, 61, 64]];
       let next = t + .1, i = 0;
@@ -690,6 +740,7 @@
 
   async function start() {
     ensureAudio();
+    if (S.track === 'storm') unlockRolls();
     /* Phones only let audio start straight from a tap, so the piece starts here, before anything waits. It stays silent until it's connected. */
     if (S.track === 'classical' && pieces.length) { S.piece = playableFrom(+S.piece, 1); playerSource(); cuePiece(); player.play().catch(() => {}); }
     setSession();
@@ -888,11 +939,11 @@
      whenever you switch to it. Hide it there until there's a native app. */
   const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (appleMobile) { delete TRACKS.none; delete MUSICS.none; if (S.track === 'none') S.track = 'classical'; }
-  const onTrack = () => { setSession(); cuePiece(); prefetch(S.track); paint(); refreshVoice(); };
+  const onTrack = () => { setSession(); cuePiece(); preload(S.track); if (S.track === 'storm') unlockRolls(); paint(); refreshVoice(); };
   chips($('track-moods'), 'track', MOODS, 'track', onTrack);
   chips($('track-noise'), 'track', NOISES, 'track', onTrack);
   chips($('track-music'), 'track', MUSICS, 'track', onTrack);
-  prefetch(S.track);
+  preload(S.track);
   chips($('visual'), 'visual', VISUALS, 'visual', paint);
   chips($('palette'), 'palette', Object.fromEntries(Object.entries(PALETTES).map(([k, v]) => [k, v.name])), 'palette', paint);
 
