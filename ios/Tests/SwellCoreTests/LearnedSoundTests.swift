@@ -2,14 +2,14 @@ import XCTest
 @testable import SwellCore
 
 /// Fills every slot with a quiet two-second tone, and the thrush with a tiny song, so the learned moods can be tested
-/// without the real files.
+/// without the real files. The tones are about as loud as the real rain layers, which are quiet files raised in level.
 func publishTestSounds(_ bank: SoundBank) {
     let rate = 22_050.0, frames = Int(rate * 2)
     for slot in SoundBank.Slot.allCases {
         let p = UnsafeMutablePointer<Int16>.allocate(capacity: frames * 2)
         let hz = 200.0 + 60 * Double(slot.rawValue)
         for i in 0..<frames {
-            let v = Int16(6000 * sin(2 * Double.pi * hz * Double(i) / rate))
+            let v = Int16(2000 * sin(2 * Double.pi * hz * Double(i) / rate))
             p[2 * i] = v; p[2 * i + 1] = v
         }
         bank.publish(slot, samples: p, frames: frames, rate: rate)

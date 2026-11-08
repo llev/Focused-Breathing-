@@ -105,8 +105,9 @@ final class ThrushSong: @unchecked Sendable {
               let rawPhrases = root["phrases"] as? [[[Any]]] else { return nil }
         var starts: [Double] = [], firsts: [Int] = [], counts: [Int] = [], h2s: [Double] = [], h3s: [Double] = []
         var pitches: [Double] = [], levels: [Double] = [], pFirst: [Int] = [], pCount: [Int] = []
+        // Loudness is measured against the loudest point in the phrases that are kept, as in app.js.
         var top = -Double.infinity
-        for phrase in rawPhrases {
+        for phrase in rawPhrases where phrase.count > 1 {
             for note in phrase {
                 if let dbs = note.count > 2 ? note[2] as? [NSNumber] : nil { for d in dbs { top = max(top, d.doubleValue) } }
             }
