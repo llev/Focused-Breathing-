@@ -187,7 +187,7 @@
     applyLevels();
     loadClips();
     ctx.onstatechange = () => {
-      if (!running) return;
+      if (!running || held) return;
       if (ctx.state === 'running') soundBack();
       else { paused = true; if (owner) player.pause(); tryResume(); }
     };
@@ -197,10 +197,72 @@
      Restart it when Swellotic is back on screen, and ask for a tap where the phone won't allow that. */
   let paused = false;
   async function tryResume() {
-    if (!running || !ctx || ctx.state === 'running' || document.hidden) return;
+    if (!running || held || !ctx || ctx.state === 'running' || document.hidden) return;
     try { await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 1500))]); } catch (e) {}
-    if (!running) return;
+    if (!running || held) return;
     if (ctx.state === 'running') soundBack(); else showResume(true);
+  }
+
+  /* Media keys, AirPods and headphone buttons. Browsers only send these to a page that's playing an audio element, and Web
+     Audio doesn't count, so a silent one plays alongside a session. Without it, a Mac sends play to the Music app instead. */
+  const keys = new Audio(); keys.loop = true;
+  function silence() {
+    const rate = 8000, n = rate * 10, b = new DataView(new ArrayBuffer(44 + n)), text = (at, t) => [...t].forEach((c, i) => b.setUint8(at + i, c.charCodeAt(0)));
+    text(0, 'RIFF'); b.setUint32(4, 36 + n, true); text(8, 'WAVEfmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true);
+    b.setUint16(22, 1, true); b.setUint32(24, rate, true); b.setUint32(28, rate, true); b.setUint16(32, 1, true); b.setUint16(34, 8, true);
+    text(36, 'data'); b.setUint32(40, n, true);
+    for (let i = 0; i < n; i++) b.setUint8(44 + i, 128);
+    return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+  }
+  function mediaKeys(state) {
+    if (state === 'playing') { if (!keys.src) keys.src = silence(); keys.play().catch(() => {}); } else keys.pause();
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = state;
+    if (state !== 'none') keyInfo();
+  }
+  /* What the Mac's Now Playing and a phone's lock screen show. */
+  function keyInfo() {
+    if (!running || !('mediaSession' in navigator) || !window.MediaMetadata) return;
+    const p = S.track === 'classical' && pieces.length ? piece() : null;
+    const title = p ? `${p.composer}: ${p.title}` : TRACKS[S.track][0], artist = p ? p.performer : 'Swellotic', m = navigator.mediaSession.metadata;
+    if (m && m.title === title && m.artist === artist) return;
+    navigator.mediaSession.metadata = new MediaMetadata({ title, artist, artwork: [{ src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }] });
+  }
+  if ('mediaSession' in navigator) {
+    const on = (action, fn) => { try { navigator.mediaSession.setActionHandler(action, fn); } catch (e) {} };
+    on('play', () => { if (!running) $('go').click(); else if (held) unhold(); });
+    on('pause', () => hold());
+    on('stop', () => { if (running) stop(); });
+    on('previoustrack', () => { if (S.track === 'classical') skipPiece(-1); });
+    on('nexttrack', () => { if (S.track === 'classical') skipPiece(1); });
+  }
+
+  /* Pausing a session keeps its place. The audio clock stops, so the breath, the session clock, any swell or rest and the
+     sounds all wait together and carry on from the same moment. */
+  let held = false;
+  function hold() {
+    if (!running || held) return;
+    held = true; paused = true; showResume(false);
+    const t = ctx.currentTime;
+    A.master.gain.cancelScheduledValues(t); A.master.gain.setTargetAtTime(0, t, .05);
+    setTimeout(() => {
+      if (!held) return;
+      if (owner) player.pause();
+      if (rollPlayer.dataset.rolling) rollPlayer.pause();
+      ctx.suspend();
+    }, 250);
+    if (wake) { wake.release().catch(() => {}); wake = null; }
+    setGo(); mediaKeys('paused'); $('status').textContent = 'Paused.';
+  }
+  async function unhold() {
+    if (!held) return;
+    held = false; paused = true; setGo(); mediaKeys('playing');
+    try { await ctx.resume(); } catch (e) {}
+    if (!running || held) return;
+    if (ctx.state !== 'running') { showResume(true); return; }
+    if (rollPlayer.dataset.rolling) rollPlayer.play().catch(() => {});
+    $('status').textContent = segment === 'rest' ? 'Time for a break. The next swell starts by itself.' : '';
+    soundBack();
   }
   function soundBack() {
     if (!paused) return;
@@ -212,7 +274,8 @@
     if (owner && segment !== 'rest') player.play().catch(() => {});
     lockScreen();
   }
-  function showResume(show) { $('resume').hidden = !show; }
+  function showResume(show) { $('resume').hidden = !show; showEnd(); }
+  function showEnd() { $('end').hidden = !(running && (held || !$('resume').hidden)); }
 
   function newCueBus() { A.cueBus = ctx.createGain(); A.cueBus.connect(A.breathBus); }
 
@@ -598,6 +661,7 @@
     if (!pieces.length) return;
     const p = piece();
     $('pieceTitle').textContent = `${p.composer}: ${p.title}`;
+    keyInfo();
     $('pieceBy').textContent = p.performer;
     $('pieceCount').textContent = `Playing piece ${S.piece + 1} of ${pieces.length}.`;
     const time = player.duration ? `${clockText(player.currentTime)} / ${clockText(player.duration)}` : '';
@@ -738,25 +802,30 @@
     }));
   }
 
-  function setGo() { $('go').classList.toggle('playing', running); $('go').setAttribute('aria-label', running ? 'Stop' : 'Start'); showUpdate(); }
+  function setGo() {
+    $('go').classList.toggle('playing', running && !held);
+    $('go').setAttribute('aria-label', !running ? 'Start' : held ? 'Resume' : 'Pause');
+    showEnd(); showUpdate();
+  }
   async function lockScreen() { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; } }
 
   async function start() {
     ensureAudio();
+    mediaKeys('playing');
     if (S.track === 'storm') unlockRolls();
     /* Phones only let audio start straight from a tap, so the piece starts here, before anything waits. It stays silent until it's connected. */
     if (S.track === 'classical' && pieces.length) { S.piece = playableFrom(+S.piece, 1); playerSource(); cuePiece(); player.play().catch(() => {}); }
     setSession();
     await ctx.resume();
     if (S.cue === 'words') await loadClips();
-    running = true; paused = false; showResume(false); sessionStart = ctx.currentTime; segment = 'swell';
+    running = true; paused = false; held = false; showResume(false); sessionStart = ctx.currentTime; segment = 'swell';
     phases = []; nextStart = ctx.currentTime + .3; cueNodes = [];
     A.master.gain.cancelScheduledValues(sessionStart);
     A.master.gain.setValueAtTime(0, sessionStart); A.master.gain.linearRampToValueAtTime(1, sessionStart + .8);
     applyLevels(); voice = startVoice(S.track); schedule(); voice.tick(ctx.currentTime, ctx.currentTime + 5);
     setGo(); $('sessionSum').textContent = S.mode === 'interval' ? `Swell ${fmt(S.swellMin * 60)}` : sessionLength() ? `${fmt(sessionLength())} left` : fmt(0);
     $('status').textContent = '';
-    lockScreen();
+    lockScreen(); keyInfo();
     count('session started', choices());
   }
   function ended(reason) {
@@ -768,11 +837,11 @@
     ended(message === 'Session finished.' ? 'finished' : 'stopped');
     const t = ctx.currentTime;
     A.master.gain.cancelScheduledValues(t); A.master.gain.setTargetAtTime(0, t, .15);
-    stopVoice(voice); voice = null; running = false; paused = false; showResume(false);
+    stopVoice(voice); voice = null; running = false; paused = false; held = false; showResume(false);
     segment = 'swell'; document.body.classList.remove('resting');
     const nodes = cueNodes; cueNodes = [];
     setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch (e) {} }); if (!running) ctx.suspend(); }, 700);
-    setGo(); paint();
+    setGo(); paint(); mediaKeys('none');
     $('status').textContent = message || 'Press play to begin.';
     if (wake) { wake.release().catch(() => {}); wake = null; }
     resetPreview();
@@ -782,6 +851,7 @@
   const canvas = $('tide'), g2 = canvas.getContext('2d');
   const still = matchMedia('(prefers-reduced-motion: reduce)');
   const lava = document.createElement('canvas'), lg = lava.getContext('2d');
+  let lavaImg = null;
   let level = .4;
   const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
   const LAVA_BLOBS = [...Array(7)].map((_, i) => ({ x: .15 + i * .115, sx: .11 + i * .023, sy: .07 + (i % 4) * .03, p: i * 1.9, r: .13 + (i % 3) * .035 }));
@@ -798,9 +868,12 @@
     g2.lineTo(w, h); g2.closePath(); g2.fillStyle = fill; g2.fill();
   }
   function drawLava(p, w, h, t) {
-    const lw = 110, lh = Math.max(60, Math.round(lw * h / w));
-    if (lava.width !== lw || lava.height !== lh) { lava.width = lw; lava.height = lh; }
-    const img = lg.createImageData(lw, lh), d = img.data, cols = p.colors.map(rgb);
+    /* The shapes are worked out on a grid and stretched to fit. Phones keep 110 across; larger screens get about one point
+       per 4 pixels, up to 360, so the edges stay smooth on a big monitor without costing phones any battery. */
+    const lw = Math.round(Math.min(360, Math.max(110, w / 4))), lh = Math.max(60, Math.round(lw * h / w));
+    if (lava.width !== lw || lava.height !== lh) { lava.width = lw; lava.height = lh; lavaImg = lg.createImageData(lw, lh); }
+    const img = lavaImg, d = img.data, cols = p.colors.map(rgb);
+    d.fill(0);
     const size = .72 + level * .62, span = Math.min(lw, lh);
     const blobs = LAVA_BLOBS.map(b => ({
       x: (b.x + Math.sin(t * b.sx + b.p) * .1) * lw,
@@ -942,7 +1015,7 @@
      whenever you switch to it. Hide it there until there's a native app. */
   const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (appleMobile) { delete TRACKS.none; delete MUSICS.none; if (S.track === 'none') S.track = 'classical'; }
-  const onTrack = () => { setSession(); cuePiece(); preload(S.track); if (S.track === 'storm') unlockRolls(); paint(); refreshVoice(); };
+  const onTrack = () => { setSession(); cuePiece(); keyInfo(); preload(S.track); if (S.track === 'storm') unlockRolls(); paint(); refreshVoice(); };
   chips($('track-moods'), 'track', MOODS, 'track', onTrack);
   chips($('track-noise'), 'track', NOISES, 'track', onTrack);
   chips($('track-music'), 'track', MUSICS, 'track', onTrack);
@@ -953,9 +1026,10 @@
   $('prevPiece').addEventListener('click', () => skipPiece(-1));
   $('nextPiece').addEventListener('click', () => skipPiece(1));
   $('repeatOne').addEventListener('click', () => { S.repeatOne = !S.repeatOne; player.loop = S.repeatOne; save(); paintPiece(); });
-  $('go').addEventListener('click', () => running ? stop() : start().catch(() => {
+  $('go').addEventListener('click', () => !running ? start().catch(() => {
     running = false; $('status').textContent = "Sound couldn't start. Reload the page and press play again.";
-  }));
+  }) : held ? unhold() : hold());
+  $('end').addEventListener('click', () => { if (running) stop(); });
   function setSheet(open) {
     $('app').classList.toggle('quiet', !open); $('quiet').setAttribute('aria-expanded', String(open));
   }
@@ -1058,9 +1132,10 @@
   /* A tap counts as permission to play, which phones need before sound can restart after some interruptions. */
   $('resume').addEventListener('click', () => {
     if (!running) return;
+    if (held) { unhold(); return; }
     paused = true;
     ctx.resume().then(() => { if (ctx.state === 'running') soundBack(); }).catch(() => {
-      $('status').textContent = "Sound couldn't restart. Press stop, then play.";
+      $('status').textContent = "Sound couldn't restart. Try again, or end the session and press play.";
     });
   });
 

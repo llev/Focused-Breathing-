@@ -326,6 +326,10 @@ final class AudioController {
     }
 
     func stop() {
+        fadeTask?.cancel()
+        fadeTask = nil
+        engine.mainMixerNode.outputVolume = 1
+        held = false
         synth.controls.end()
         isPlaying = false
         resting = false
@@ -342,27 +346,52 @@ final class AudioController {
 
     var engineRunning: Bool { engine.isRunning }
 
-    /// True while sound is held after headphones disconnect. Nothing restarts it by itself, so it never plays out loud
-    /// by surprise; only the person can, with "Tap to resume" or the lock screen.
+    /// True while the session is paused, by the pause button, the lock screen, AirPods or headphones disconnecting.
+    /// Nothing restarts it by itself, so it never plays out loud by surprise; only the person can.
     private(set) var held = false
+    private var fadeTask: Task<Void, Never>?
 
     /// Pauses the session where it is. The breath, the session clock, any swell or rest and the classical piece all stop
-    /// together, because they run on the audio clock, and carry on from the same moment on resume.
-    private func hold() {
+    /// together, because they run on the audio clock, and carry on from the same moment on resume. `fade` eases the sound
+    /// out first; when headphones disconnect it stops at once, so nothing plays through the speaker.
+    func pause(fade: Bool = true) {
         guard isPlaying, !held else { return }
         held = true
         _ = piecePosition()
         pieceRun += 1
+        updateNowPlaying()
+        fadeTask?.cancel()
+        guard fade else { return finishPause() }
+        fadeTask = Task { [weak self] in
+            for i in 1...8 {
+                try? await Task.sleep(for: .milliseconds(20))
+                guard let self, !Task.isCancelled else { return }
+                self.engine.mainMixerNode.outputVolume = 1 - Float(i) / 8
+            }
+            guard let self, !Task.isCancelled, self.held else { return }
+            self.finishPause()
+        }
+    }
+
+    private func finishPause() {
         player.stop()
         stream = nil
         engine.pause()
-        updateNowPlaying()
+        engine.mainMixerNode.outputVolume = 1
+        // With "My music app", let the other app back up to full volume while paused.
+        if settings.track == .musicApp { try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
     }
 
     /// Restarts sound after the phone paused it. The breath carries on from where it stopped and fades in.
     @discardableResult
     func resume() -> Bool {
         guard isPlaying else { return false }
+        if held {
+            fadeTask?.cancel()
+            fadeTask = nil
+            if engine.isRunning { finishPause() }
+        }
+        let wasHeld = held
         held = false
         do {
             configureSession()
@@ -372,9 +401,11 @@ final class AudioController {
             synth.controls.soundBack()
             // The phone stopped the engine, so carry on the piece from where it was.
             if settings.track == .classical { playPiece(currentPiece, from: lastPosition) }
+            updateNowPlaying()
             onEvent?(.resumed)
             return true
         } catch {
+            held = wasHeld
             return false
         }
     }
@@ -603,8 +634,8 @@ final class AudioController {
     private func routeChanged(_ reason: AVAudioSession.RouteChangeReason?) {
         updateLatency()
         // Apple's guidance: when headphones are unplugged, pause rather than play out loud.
-        if reason == .oldDeviceUnavailable && isPlaying {
-            hold()
+        if reason == .oldDeviceUnavailable && isPlaying && !held {
+            pause(fade: false)
             onEvent?(.headphonesGone)
         }
     }
