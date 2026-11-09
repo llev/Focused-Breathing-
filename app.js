@@ -206,21 +206,26 @@
   /* Media keys, AirPods and headphone buttons. Browsers only send these to a page that's playing an audio element, and Web
      Audio doesn't count, so a silent one plays alongside a session. Without it, a Mac sends play to the Music app instead. */
   const keys = new Audio(); keys.loop = true;
-  function silence() {
-    const rate = 8000, n = rate * 10, b = new DataView(new ArrayBuffer(44 + n)), text = (at, t) => [...t].forEach((c, i) => b.setUint8(at + i, c.charCodeAt(0)));
+  function silence(seconds) {
+    const rate = 8000, n = rate * seconds, b = new DataView(new ArrayBuffer(44 + n)), text = (at, t) => [...t].forEach((c, i) => b.setUint8(at + i, c.charCodeAt(0)));
     text(0, 'RIFF'); b.setUint32(4, 36 + n, true); text(8, 'WAVEfmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true);
     b.setUint16(22, 1, true); b.setUint32(24, rate, true); b.setUint32(28, rate, true); b.setUint16(32, 1, true); b.setUint16(34, 8, true);
     text(36, 'data'); b.setUint32(40, n, true);
     for (let i = 0; i < n; i++) b.setUint8(44 + i, 128);
     return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
   }
-  /* On Android, a playing audio element takes over the sound and pauses other apps, so it's left out for My music app.
-     Web Audio on its own plays alongside them. */
+  /* On Android, a long audio element takes over the sound and pauses other apps, so it's left out for My music app.
+     Instead, a 2 second silent clip plays on repeat. Chrome treats clips under 5 seconds as short sounds and asks Android
+     to turn other apps down rather than pause them, which should lower the music app while a session plays. This needs
+     checking on a real Android phone; if it doesn't lower the music, hide My music app on Android as on iPhone. */
   const android = /Android/.test(navigator.userAgent);
+  const duck = new Audio(); duck.loop = true;
   const keysAllowed = () => !(android && S.track === 'none');
   function mediaKeys(state) {
+    const lower = android && S.track === 'none' && state === 'playing';
+    if (lower) { if (!duck.src) duck.src = silence(2); duck.play().catch(() => {}); } else duck.pause();
     if (state === 'playing' && !keysAllowed()) state = 'none';
-    if (state === 'playing') { if (!keys.src) keys.src = silence(); keys.play().catch(() => {}); } else keys.pause();
+    if (state === 'playing') { if (!keys.src) keys.src = silence(10); keys.play().catch(() => {}); } else keys.pause();
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.playbackState = state;
     if (state !== 'none') keyInfo();
