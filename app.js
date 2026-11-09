@@ -61,7 +61,7 @@
     ambient: ['Ambient', 'Slow, warm chords that drift gently from one to the next.' + MADE],
     keys: ['Soft keys', 'Quiet, unhurried piano notes over a low note every few seconds.' + MADE],
     classical: ['Classical mix', 'Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use.'],
-    none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. On a phone, the side buttons change both, so use the Breath slider to balance them.']
+    none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. On a phone, the side buttons change both, so use the Breath slider to balance them. On a computer, turn your music app\'s own volume down if the breaths are hard to hear.']
   };
   const TRACKS = { ...MOODS, ...NOISES, ...MUSICS };
   if (!TRACKS[S.track]) S.track = 'brown';
@@ -969,7 +969,7 @@
     const c = 60 / S.bpm, i = c * RATIOS[S.ratio][1];
     $('bpmOut').textContent = `${S.bpm} (${i.toFixed(1)} s in, ${(c - i).toFixed(1)} s out)`;
     const appMusic = S.track === 'none';
-    $('musicVol').disabled = appMusic; $('room').disabled = appMusic;
+    $('musicVol').disabled = appMusic; $('roomRow').hidden = appMusic;
     $('breathOut').textContent = S.breathVol ? S.breathVol + '%' : 'Silent';
     $('musicOut').textContent = appMusic ? 'In your music app' : S.musicVol + '%';
     $('sum-pace').textContent = `${S.bpm} a minute, ${CUES[S.cue]}`;

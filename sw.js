@@ -8,7 +8,7 @@
    offers "Tap to update" when nothing is playing, and the new version also
    takes over by itself the next time the app is fully closed and reopened.
    It never swaps files in the middle of a session. */
-const VERSION = '25';
+const VERSION = '26';
 const CACHE = 'swellotic-' + VERSION;
 /* Classical recordings kept for offline use. This store is not versioned, so app updates don't throw saved music away. */
 const MUSIC = 'swellotic-music';
