@@ -102,7 +102,7 @@ struct SettingsSheet: View {
             if s.track == .musicApp {
                 ToggleRow(title: "Lower my music app", detail: "Turns your music app down while Swellotic plays, so the breath is easier to hear.",
                           isOn: $model.settings.lowerMusicApp, tint: tint)
-            } else {
+            } else if s.track != .breathOnly {
                 ToggleRow(title: "Put sounds in the room", detail: "Keeps the breath close and makes the sounds seem further away in your headphones.",
                           isOn: $model.settings.room, tint: tint)
             }
@@ -116,7 +116,6 @@ struct SettingsSheet: View {
             ChipPicker(title: "Colours", choices: Palette.allCases.map { Choice(value: $0, name: $0.name) },
                        selection: $model.settings.palette, tint: tint)
             ToggleRow(title: "In and Out", isOn: $model.settings.showWords, tint: tint)
-            ToggleRow(title: "Countdown", isOn: $model.settings.countdown, tint: tint)
         }
     }
 }

@@ -57,7 +57,6 @@ h1 { margin: 0; font: 600 1.0625rem/1.2 var(--body); letter-spacing: -.01em; tex
   font: 300 clamp(4.5rem, 14vw, 8.5rem)/1 var(--round); letter-spacing: -.02em;
   text-shadow: 0 2px 26px rgba(0, 0, 0, .55);
 }
-#timing { font-size: .9375rem; font-weight: 500; font-variant-numeric: tabular-nums; padding: 5px 14px; border-radius: 999px; }
 .foot { display: grid; gap: 10px; justify-items: center; }
 #status { margin: 0; font-size: .9375rem; font-weight: 500; text-align: center; text-shadow: 0 1px 10px rgba(0, 0, 0, .6); }
 #status:empty { display: none; }

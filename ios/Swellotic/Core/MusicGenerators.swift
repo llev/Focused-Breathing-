@@ -25,7 +25,7 @@ func makeGenerator(_ track: MusicTrack, sampleRate: Double, controls: SynthContr
     case .storm: return RainMoodSound(sampleRate: sampleRate, controls: controls, storm: true)
     case .park: return ParkSound(sampleRate: sampleRate, controls: controls)
     case .hill: return WindHillSound(sampleRate: sampleRate, controls: controls)
-    case .classical, .musicApp: return nil
+    case .classical, .musicApp, .breathOnly: return nil
     }
 }
 
