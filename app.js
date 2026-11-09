@@ -851,6 +851,7 @@
   const canvas = $('tide'), g2 = canvas.getContext('2d');
   const still = matchMedia('(prefers-reduced-motion: reduce)');
   const lava = document.createElement('canvas'), lg = lava.getContext('2d');
+  let lavaImg = null;
   let level = .4;
   const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
   const LAVA_BLOBS = [...Array(7)].map((_, i) => ({ x: .15 + i * .115, sx: .11 + i * .023, sy: .07 + (i % 4) * .03, p: i * 1.9, r: .13 + (i % 3) * .035 }));
@@ -867,9 +868,12 @@
     g2.lineTo(w, h); g2.closePath(); g2.fillStyle = fill; g2.fill();
   }
   function drawLava(p, w, h, t) {
-    const lw = 110, lh = Math.max(60, Math.round(lw * h / w));
-    if (lava.width !== lw || lava.height !== lh) { lava.width = lw; lava.height = lh; }
-    const img = lg.createImageData(lw, lh), d = img.data, cols = p.colors.map(rgb);
+    /* The shapes are worked out on a grid and stretched to fit. Phones keep 110 across; larger screens get about one point
+       per 4 pixels, up to 360, so the edges stay smooth on a big monitor without costing phones any battery. */
+    const lw = Math.round(Math.min(360, Math.max(110, w / 4))), lh = Math.max(60, Math.round(lw * h / w));
+    if (lava.width !== lw || lava.height !== lh) { lava.width = lw; lava.height = lh; lavaImg = lg.createImageData(lw, lh); }
+    const img = lavaImg, d = img.data, cols = p.colors.map(rgb);
+    d.fill(0);
     const size = .72 + level * .62, span = Math.min(lw, lh);
     const blobs = LAVA_BLOBS.map(b => ({
       x: (b.x + Math.sin(t * b.sx + b.p) * .1) * lw,
