@@ -1024,7 +1024,10 @@
   /* On iPhone and iPad, a web app can't keep playing in the background while mixing with another app, so "My music app" stops
      whenever you switch to it. Hide it there until there's a native app. */
   const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (appleMobile) { delete TRACKS.none; delete MUSICS.none; if (S.track === 'none') S.track = 'classical'; }
+  /* On Android it's only worth offering if the music app gets quieter, which hasn't been tested on a real phone yet.
+     Add ?musicapp to the address to show it there for testing. */
+  const androidUntested = android && !new URLSearchParams(location.search).has('musicapp');
+  if (appleMobile || androidUntested) { delete TRACKS.none; delete MUSICS.none; if (S.track === 'none') S.track = 'classical'; }
   const onTrack = () => { setSession(); cuePiece(); if (running && !held) mediaKeys('playing'); preload(S.track); if (S.track === 'storm') unlockRolls(); paint(); refreshVoice(); };
   chips($('track-moods'), 'track', MOODS, 'track', onTrack);
   chips($('track-noise'), 'track', NOISES, 'track', onTrack);

@@ -51,7 +51,7 @@ Lloyd should test the installed app on a real iPhone and Android phone and recor
 | Switch apps and return | "My music app": breaths stop when switching to Spotify | |
 | Take a call or trigger Siri or Assistant, then return | | |
 | Connect and disconnect Bluetooth headphones | | |
-| "My music app" with Spotify playing: do both continue? | Hidden on iPhone | |
+| "My music app" with Spotify playing: do both continue? (On Android, open with `?musicapp`) | Hidden on iPhone | |
 | "My music app": does Spotify get quieter while Swellotic plays, and back to full when paused or stopped? | Hidden on iPhone | |
 | Breath slider changes only the breaths | | |
 | Ring/silent switch behaviour | | |
@@ -66,10 +66,11 @@ Lloyd's first iPhone results, 5 November 2026: generated sounds keep playing in 
 
 **Decided 2026-11-05:** Lloyd chose a native iPhone app. See "iOS app" below. The web app stays for desktop and Android.
 
-**Decided 9 November 2026: My music app on Android.** It's only worth offering if it turns the music app down, as "Lower my music app" does on iPhone. The web app tries this with a short silent clip on repeat (see "Media keys in the web app" below). If Lloyd's Android test shows Spotify pauses, or doesn't get quieter, hide My music app on Android as on iPhone, and plan an Android app.
+**Decided 9 November 2026: My music app on Android.** It's only worth offering if it turns the music app down, as "Lower my music app" does on iPhone. The web app tries this with a short silent clip on repeat (see "Media keys in the web app" below). Lloyd has no Android phone to test on, so My music app is hidden on Android for now. Adding `?musicapp` to the address shows it there for testing. If the test shows Spotify pauses, or doesn't get quieter, keep it hidden and plan an Android app; if it works, remove the hiding.
 
 - [ ] Lloyd to test My music app on a real Android phone with Spotify: both keep playing, Spotify gets quieter, and it comes back to full volume when paused or stopped. Also with the screen locked and after switching to Spotify.
-- [ ] If it fails, hide My music app on Android in the web app.
+- [x] Hide My music app on Android until it's tested (9 November 2026).
+- [ ] If the test passes, show it on Android again by removing `androidUntested` in `app.js`.
 - [ ] Later: an Android app, as the iPhone app does for iOS. Android lets apps ask other apps to lower their volume, play in the background and use the lock screen. Consider it once the iPhone app is out, or sooner if the web app can't do My music app well on Android.
 
 ## Phase 3: Reliable sound
@@ -102,7 +103,7 @@ Lloyd reported that with "My music app", the breaths sometimes kept going but of
 - [x] Show the Classical mix piece and its previous, next and repeat-one controls on the main screen, above the player bar. Saving for offline stays in the Music settings.
 - [ ] Lloyd reported the main screen cut off before the bottom of his iPhone screen. Lloyd's screenshot from the installed app showed an empty band at the bottom the same height as the status bar, 62 points. It's a known iOS bug for home-screen apps that draw under the status bar: the page is laid out one status bar short. In the installed app on iPhone, Swellotic now uses the screen's full height, and the settings sheet, session drawer and launch screen reach the real bottom. Elsewhere it uses the visible height the device reports. Version 9 overshot: it gave the inner body the full height as well, so the controls fell below the screen by the status bar's height. Version 10 sizes only the page to the screen, and the body fills the space inside the status bar and home indicator padding. A Chrome simulation with the iPhone's 62 and 34 point safe areas now puts the player bar 16 points above the home indicator. Version 10 fixed the position, but left a flat band 34 points tall at the bottom. The player bar's shadow was cut off in a hard line where the body ended above the home indicator. In version 11, the status bar and home indicator space is padding inside the body, so the body reaches the bottom of the screen. The controls and background haven't moved. Lloyd to confirm on his iPhone once version 11 is deployed.
 - [x] Opening the session drawer showed a white focus ring around Done on iPhone. Focus now moves to the drawer itself, and returns to the session button only for keyboard users.
-- [x] Hide "My music app" on iPhone and iPad, where it stops whenever you switch apps. Anyone who had it chosen gets the Classical mix. It's still offered on Android, which hasn't been tested yet.
+- [x] Hide "My music app" on iPhone and iPad, where it stops whenever you switch apps. Anyone who had it chosen gets the Classical mix. Also hidden on Android until it's tested; see Phase 2.
 - [ ] Reduce the number of choices shown at first, if testing supports it.
 - [ ] Allow keyboard control, such as Space to start and stop.
 
