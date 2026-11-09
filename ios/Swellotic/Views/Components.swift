@@ -108,6 +108,50 @@ struct ChipPicker<Value: Hashable>: View {
     }
 }
 
+/// A switch between a few options, styled like the web app's: labels can wrap onto two lines, and the chosen option's
+/// background fills the whole height, so nothing is squashed or cut off on narrow screens.
+struct SegmentedChoice<Value: Hashable>: View {
+    let title: String
+    let choices: [Choice<Value>]
+    @Binding var selection: Value
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(choices) { choice in
+                let chosen = choice.value == selection
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { selection = choice.value }
+                } label: {
+                    Text(choice.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(chosen ? Color(hex: 0x17121F) : Color.soft)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
+                        .background {
+                            if chosen {
+                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                    .fill(.white)
+                                    .shadow(color: .black.opacity(0.25), radius: 3.5, y: 2)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(chosen ? .isSelected : [])
+            }
+        }
+        // Every option takes the height of the tallest, so the chosen background always fills the switch.
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(3)
+        .background(Color.well, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
+    }
+}
+
 /// A collapsible settings card. When closed, it shows its current setting.
 struct SettingsSection<Content: View>: View {
     let title: String

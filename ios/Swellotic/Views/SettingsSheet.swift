@@ -68,10 +68,8 @@ struct SettingsSheet: View {
                        selection: $model.settings.sound, tint: tint)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Breathing pattern").font(.subheadline.weight(.semibold))
-                Picker("Breathing pattern", selection: $model.settings.pattern) {
-                    ForEach(BreathPattern.allCases, id: \.self) { Text($0.name).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                SegmentedChoice(title: "Breathing pattern", choices: BreathPattern.allCases.map { Choice(value: $0, name: $0.name) },
+                                selection: $model.settings.pattern)
             }
             ToggleRow(title: "Slow down gradually", detail: "Starts at 10 breaths a minute and reaches your pace over 3 minutes.",
                       isOn: $model.settings.ease, tint: tint)

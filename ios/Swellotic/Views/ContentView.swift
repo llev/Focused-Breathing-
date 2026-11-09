@@ -22,7 +22,7 @@ struct ContentView: View {
                     // On iPad and Mac, Session is a popover by its button. On iPhone it becomes a sheet.
                     .popover(isPresented: $showSession) {
                         SessionSheet(model: model) { showSession = false }
-                            .frame(minWidth: sizeClass == .regular ? 400 : nil, minHeight: sizeClass == .regular ? 560 : nil)
+                            .frame(width: sizeClass == .regular ? 420 : nil)
                             .presentationCompactAdaptation(.sheet)
                             .presentationDetents([.medium, .large])
                             .presentationDragIndicator(.visible)

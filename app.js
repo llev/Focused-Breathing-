@@ -992,7 +992,7 @@
     $('customMin').value = S.customMin; $('customOut').textContent = `${S.customMin} min`; $('customRow').hidden = S.limit !== 'custom';
     $('swellMin').value = S.swellMin; $('swellOut').textContent = `${S.swellMin} min`;
     $('restMin').value = S.restMin; $('restOut').textContent = `${S.restMin} min`;
-    $('intervalNote').textContent = +S.rounds ? `${S.rounds} swells with a rest between each, ${sessionLength() / 60} minutes in all.` : 'Swell and rest take turns until you press stop.';
+    $('intervalNote').textContent = +S.rounds ? `${S.rounds} swells with a rest between each, ${sessionLength() / 60} minutes in all.` : 'Swell and rest take turns until you end the session.';
     $('word').hidden = !S.words; $('timing').hidden = !S.countdown;
     document.documentElement.style.setProperty('--tint', PALETTES[S.palette].tint);
     [['breathVol', 0, 100], ['musicVol', 0, 100], ['bpm', 2, 12], ['customMin', 5, 240], ['swellMin', 5, 90], ['restMin', 1, 30]].forEach(([id, lo, hi]) => $(id).style.setProperty('--v', ($(id).value - lo) / (hi - lo) * 100 + '%'));
