@@ -61,7 +61,7 @@
     ambient: ['Ambient', 'Slow, warm chords that drift gently from one to the next.' + MADE],
     keys: ['Soft keys', 'Quiet, unhurried piano notes over a low note every few seconds.' + MADE],
     classical: ['Classical mix', 'Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use.'],
-    none: ['My music app', 'Play music in Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. Turn your music app\'s own volume down if the breaths are hard to hear.']
+    none: ['My music app', 'Play music in Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. If the breaths are hard to hear, turn your music app down, or on a phone, turn Breath up.']
   };
   const TRACKS = { ...MOODS, ...NOISES, ...MUSICS };
   if (!TRACKS[S.track]) S.track = 'brown';
@@ -214,7 +214,12 @@
     for (let i = 0; i < n; i++) b.setUint8(44 + i, 128);
     return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
   }
+  /* On Android, a playing audio element takes over the sound and pauses other apps, so it's left out for My music app.
+     Web Audio on its own plays alongside them. */
+  const android = /Android/.test(navigator.userAgent);
+  const keysAllowed = () => !(android && S.track === 'none');
   function mediaKeys(state) {
+    if (state === 'playing' && !keysAllowed()) state = 'none';
     if (state === 'playing') { if (!keys.src) keys.src = silence(); keys.play().catch(() => {}); } else keys.pause();
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.playbackState = state;
@@ -1015,7 +1020,7 @@
      whenever you switch to it. Hide it there until there's a native app. */
   const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (appleMobile) { delete TRACKS.none; delete MUSICS.none; if (S.track === 'none') S.track = 'classical'; }
-  const onTrack = () => { setSession(); cuePiece(); keyInfo(); preload(S.track); if (S.track === 'storm') unlockRolls(); paint(); refreshVoice(); };
+  const onTrack = () => { setSession(); cuePiece(); if (running && !held) mediaKeys('playing'); preload(S.track); if (S.track === 'storm') unlockRolls(); paint(); refreshVoice(); };
   chips($('track-moods'), 'track', MOODS, 'track', onTrack);
   chips($('track-noise'), 'track', NOISES, 'track', onTrack);
   chips($('track-music'), 'track', MUSICS, 'track', onTrack);
