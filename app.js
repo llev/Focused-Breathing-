@@ -61,7 +61,7 @@
     ambient: ['Ambient', 'Slow, warm chords that drift gently from one to the next.' + MADE],
     keys: ['Soft keys', 'Quiet, unhurried piano notes over a low note every few seconds.' + MADE],
     classical: ['Classical mix', 'Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use.'],
-    none: ['My music app', 'Play music in Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. If the breaths are hard to hear, turn your music app down, or on a phone, turn Breath up.']
+    none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. If the breaths are hard to hear, turn your music app down, or on a phone, turn Breath up.']
   };
   const TRACKS = { ...MOODS, ...NOISES, ...MUSICS };
   if (!TRACKS[S.track]) S.track = 'brown';
