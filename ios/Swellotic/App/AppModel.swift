@@ -9,6 +9,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var running = false
     @Published private(set) var status = "Press play to begin."
     @Published private(set) var showResume = false
+    /// The session is paused where it is, by the pause button, the lock screen, AirPods or headphones disconnecting.
+    @Published private(set) var paused = false
     /// The session button's text: the session's settings when stopped, and its clock while playing.
     @Published private(set) var sessionText = ""
     @Published private(set) var resting = false
@@ -79,11 +81,17 @@ final class AppModel: ObservableObject {
 
     // MARK: Playing
 
-    func toggle() { running ? stop() : start() }
+    /// The play button: start, pause, or carry on from a pause. Ending a session is a separate button, shown while paused.
+    func toggle() {
+        if !running { start() } else if audio.held { tapToResume() } else { pause() }
+    }
 
-    /// The lock screen's play and pause. Play carries on a held session; pause ends it, as the play button does.
-    private func remoteToggle() {
-        if running && audio.held { tapToResume() } else { toggle() }
+    func pause() {
+        guard running, !audio.held else { return }
+        audio.pause()
+        paused = true
+        showResume = false
+        status = "Paused."
     }
 
     func start() {
@@ -107,6 +115,7 @@ final class AppModel: ObservableObject {
         guard running else { return }
         audio.stop()
         running = false
+        paused = false
         showResume = false
         resting = false
         pieceTime = ""
@@ -121,9 +130,10 @@ final class AppModel: ObservableObject {
     func tapToResume() {
         if audio.resume() {
             showResume = false
-            if !resting { status = "" }
+            paused = false
+            status = resting ? "Time for a break. The next swell starts by itself." : ""
         } else {
-            status = "Sound couldn't restart. Press stop, then play."
+            status = "Sound couldn't restart. Try again, or end the session and press play."
         }
     }
 
@@ -171,20 +181,23 @@ final class AppModel: ObservableObject {
             break
         case .resumed:
             showResume = false
+            paused = false
             resumeCheck?.cancel()
-            if !resting { status = "" }
+            status = resting ? "Time for a break. The next swell starts by itself." : ""
         case .needsTap:
             if running { showResume = true }
         case .headphonesGone:
             // Paused, not stopped: the session, swell or rest and classical piece carry on from here.
-            status = "Headphones disconnected."
-            showResume = true
+            paused = true
+            showResume = false
+            status = "Headphones disconnected. Paused."
         case .remoteToggle:
-            remoteToggle()
+            toggle()
         case .remotePlay:
             if running && audio.held { tapToResume() } else { start() }
         case .remotePause:
-            stop()
+            // Also sent when AirPods come out of your ears. Pausing keeps your place, as the pause button does.
+            pause()
         case .pieceChanged(let index):
             if settings.piece != index { settings.piece = index }
         case .classical(let message):

@@ -108,9 +108,9 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 }
 #go:active { transform: scale(.93); }
 #go svg { width: 26px; height: 26px; fill: currentColor; }
-#go .stop-icon { display: none; }
+#go .pause-icon { display: none; }
 #go.playing .play-icon { display: none; }
-#go.playing .stop-icon { display: block; }
+#go.playing .pause-icon { display: block; }
 .round {
   width: 46px; height: 46px; border-radius: 50%; background: var(--well); display: grid; place-items: center;
 }

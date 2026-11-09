@@ -187,7 +187,7 @@
     applyLevels();
     loadClips();
     ctx.onstatechange = () => {
-      if (!running) return;
+      if (!running || held) return;
       if (ctx.state === 'running') soundBack();
       else { paused = true; if (owner) player.pause(); tryResume(); }
     };
@@ -197,10 +197,38 @@
      Restart it when Swellotic is back on screen, and ask for a tap where the phone won't allow that. */
   let paused = false;
   async function tryResume() {
-    if (!running || !ctx || ctx.state === 'running' || document.hidden) return;
+    if (!running || held || !ctx || ctx.state === 'running' || document.hidden) return;
     try { await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 1500))]); } catch (e) {}
-    if (!running) return;
+    if (!running || held) return;
     if (ctx.state === 'running') soundBack(); else showResume(true);
+  }
+
+  /* Pausing a session keeps its place. The audio clock stops, so the breath, the session clock, any swell or rest and the
+     sounds all wait together and carry on from the same moment. */
+  let held = false;
+  function hold() {
+    if (!running || held) return;
+    held = true; paused = true; showResume(false);
+    const t = ctx.currentTime;
+    A.master.gain.cancelScheduledValues(t); A.master.gain.setTargetAtTime(0, t, .05);
+    setTimeout(() => {
+      if (!held) return;
+      if (owner) player.pause();
+      if (rollPlayer.dataset.rolling) rollPlayer.pause();
+      ctx.suspend();
+    }, 250);
+    if (wake) { wake.release().catch(() => {}); wake = null; }
+    setGo(); $('status').textContent = 'Paused.';
+  }
+  async function unhold() {
+    if (!held) return;
+    held = false; paused = true; setGo();
+    try { await ctx.resume(); } catch (e) {}
+    if (!running || held) return;
+    if (ctx.state !== 'running') { showResume(true); return; }
+    if (rollPlayer.dataset.rolling) rollPlayer.play().catch(() => {});
+    $('status').textContent = segment === 'rest' ? 'Time for a break. The next swell starts by itself.' : '';
+    soundBack();
   }
   function soundBack() {
     if (!paused) return;
@@ -212,7 +240,8 @@
     if (owner && segment !== 'rest') player.play().catch(() => {});
     lockScreen();
   }
-  function showResume(show) { $('resume').hidden = !show; }
+  function showResume(show) { $('resume').hidden = !show; showEnd(); }
+  function showEnd() { $('end').hidden = !(running && (held || !$('resume').hidden)); }
 
   function newCueBus() { A.cueBus = ctx.createGain(); A.cueBus.connect(A.breathBus); }
 
@@ -738,7 +767,11 @@
     }));
   }
 
-  function setGo() { $('go').classList.toggle('playing', running); $('go').setAttribute('aria-label', running ? 'Stop' : 'Start'); showUpdate(); }
+  function setGo() {
+    $('go').classList.toggle('playing', running && !held);
+    $('go').setAttribute('aria-label', !running ? 'Start' : held ? 'Resume' : 'Pause');
+    showEnd(); showUpdate();
+  }
   async function lockScreen() { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; } }
 
   async function start() {
@@ -749,7 +782,7 @@
     setSession();
     await ctx.resume();
     if (S.cue === 'words') await loadClips();
-    running = true; paused = false; showResume(false); sessionStart = ctx.currentTime; segment = 'swell';
+    running = true; paused = false; held = false; showResume(false); sessionStart = ctx.currentTime; segment = 'swell';
     phases = []; nextStart = ctx.currentTime + .3; cueNodes = [];
     A.master.gain.cancelScheduledValues(sessionStart);
     A.master.gain.setValueAtTime(0, sessionStart); A.master.gain.linearRampToValueAtTime(1, sessionStart + .8);
@@ -768,7 +801,7 @@
     ended(message === 'Session finished.' ? 'finished' : 'stopped');
     const t = ctx.currentTime;
     A.master.gain.cancelScheduledValues(t); A.master.gain.setTargetAtTime(0, t, .15);
-    stopVoice(voice); voice = null; running = false; paused = false; showResume(false);
+    stopVoice(voice); voice = null; running = false; paused = false; held = false; showResume(false);
     segment = 'swell'; document.body.classList.remove('resting');
     const nodes = cueNodes; cueNodes = [];
     setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch (e) {} }); if (!running) ctx.suspend(); }, 700);
@@ -953,9 +986,10 @@
   $('prevPiece').addEventListener('click', () => skipPiece(-1));
   $('nextPiece').addEventListener('click', () => skipPiece(1));
   $('repeatOne').addEventListener('click', () => { S.repeatOne = !S.repeatOne; player.loop = S.repeatOne; save(); paintPiece(); });
-  $('go').addEventListener('click', () => running ? stop() : start().catch(() => {
+  $('go').addEventListener('click', () => !running ? start().catch(() => {
     running = false; $('status').textContent = "Sound couldn't start. Reload the page and press play again.";
-  }));
+  }) : held ? unhold() : hold());
+  $('end').addEventListener('click', () => { if (running) stop(); });
   function setSheet(open) {
     $('app').classList.toggle('quiet', !open); $('quiet').setAttribute('aria-expanded', String(open));
   }
@@ -1058,9 +1092,10 @@
   /* A tap counts as permission to play, which phones need before sound can restart after some interruptions. */
   $('resume').addEventListener('click', () => {
     if (!running) return;
+    if (held) { unhold(); return; }
     paused = true;
     ctx.resume().then(() => { if (ctx.state === 'running') soundBack(); }).catch(() => {
-      $('status').textContent = "Sound couldn't restart. Press stop, then play.";
+      $('status').textContent = "Sound couldn't restart. Try again, or end the session and press play.";
     });
   });
 

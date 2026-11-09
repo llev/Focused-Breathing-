@@ -85,6 +85,14 @@ struct ContentView: View {
                     .frame(minHeight: 44)
                     .frostedCapsule()
             }
+            if model.paused || model.showResume {
+                Button("End session") { model.stop() }
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .frame(minHeight: 44)
+                    .frostedCapsule()
+            }
             if model.settings.track == .classical {
                 NowPlayingStrip(model: model, library: model.library)
             }
@@ -194,7 +202,7 @@ struct PlayerBar: View {
         let musicApp = s.track == .musicApp
         HStack(spacing: 14) {
             Button(action: model.toggle) {
-                Image(systemName: model.running ? "stop.fill" : "play.fill")
+                Image(systemName: model.running && !model.paused ? "pause.fill" : "play.fill")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(s.palette.onTint)
                     .frame(width: 64, height: 64)
@@ -202,7 +210,7 @@ struct PlayerBar: View {
                     .shadow(color: .black.opacity(0.3), radius: 10, y: 6)
             }
             .buttonStyle(PressableStyle())
-            .accessibilityLabel(model.running ? "Stop" : "Start")
+            .accessibilityLabel(!model.running ? "Start" : model.paused ? "Resume" : "Pause")
 
             VStack(spacing: 4) {
                 MixSlider(title: "Breath", value: s.breathVolume == 0 ? "Silent" : "\(Int(s.breathVolume))%",
