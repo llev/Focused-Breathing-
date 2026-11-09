@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const S = { bpm: 6, ratio: 'even', cue: 'bowl', breathVol: 35, musicVol: 55, room: true, ease: false, track: 'brown', limit: 0, visual: 'lava', palette: 'sunset', open: null, words: true, countdown: false, piece: 0, repeatOne: false, saveAll: false, customMin: 40, mode: 'timer', swellMin: 25, restMin: 5, rounds: 4 };
+  const S = { bpm: 6, ratio: 'even', cue: 'bowl', breathVol: 70, musicVol: 50, room: true, ease: false, track: 'brown', limit: 0, visual: 'lava', palette: 'sunset', open: null, words: true, countdown: false, piece: 0, repeatOne: false, saveAll: false, customMin: 40, mode: 'timer', swellMin: 25, restMin: 5, rounds: 4 };
   try { Object.assign(S, JSON.parse(localStorage.getItem('breathing-room') || '{}')); } catch (e) {}
   /* "Audio files" was replaced by the classical mix. */
   if (S.track === 'own') S.track = 'classical';

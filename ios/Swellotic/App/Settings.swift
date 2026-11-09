@@ -81,8 +81,8 @@ struct Settings: Codable, Equatable {
     var bpm = 6.0
     var pattern = BreathPattern.even
     var sound = BreathSound.bowl
-    var breathVolume = 35.0
-    var musicVolume = 55.0
+    var breathVolume = 70.0
+    var musicVolume = 50.0
     var room = true
     var lowerMusicApp = true
     var ease = false
