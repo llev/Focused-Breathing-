@@ -27,9 +27,11 @@ enum MusicTrack: Int, CaseIterable, Codable, Sendable {
     // Rain and Wind became the Rain on the window and Wind on the hill moods; they stay here so old settings still load.
     case brown, pink, rain, beach, stream, wind, fire, ambient, keys, classical, musicApp
     case green, window, storm, park, hill
+    /// No background sound, just the breaths.
+    case breathOnly
 
-    /// Generated tracks are made in code. The Classical mix and "My music app" are not.
-    var isGenerated: Bool { self != .classical && self != .musicApp }
+    /// Generated tracks are made in code. The Classical mix, "My music app" and None are not.
+    var isGenerated: Bool { self != .classical && self != .musicApp && self != .breathOnly }
 
     /// Moods that play files learned from recordings, so they're silent until those files are loaded.
     var isLearned: Bool { self == .window || self == .storm || self == .park || self == .hill }

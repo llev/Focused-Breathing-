@@ -42,7 +42,6 @@
     <div class="top"><div class="brand"><h1>Swellotic</h1><p class="tagline">Breathe. Listen. Focus.</p></div></div>
     <div class="phase">
       <span id="word">In</span>
-      <span id="timing" class="glass" hidden></span>
       <button id="sessionBtn" class="session-btn glass" type="button" aria-haspopup="dialog" aria-controls="sessionSheet" aria-expanded="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M10 2h4"/></svg>
         <span class="sr">Session: </span><span id="sessionSum"></span>
@@ -124,7 +123,6 @@
           <fieldset><legend>Scene</legend><div class="chips" id="visual"></div></fieldset>
           <fieldset><legend>Colours</legend><div class="chips" id="palette"></div></fieldset>
           <label class="check"><span>In and Out</span><input id="words" type="checkbox"></label>
-          <label class="check"><span>Countdown</span><input id="countdown" type="checkbox"></label>
         </div>
       </details>
     <p class="links"><a href="support.html">Help</a><a href="privacy.html">Privacy</a></p>
@@ -141,7 +139,7 @@
       <button class="tab" id="tab-interval" type="button" role="tab" aria-controls="pane-interval">Interval</button>
     </div>
     <div class="pane" id="pane-timer" role="tabpanel" aria-labelledby="tab-timer">
-      <p class="note">Breathe until you press stop, or for a set time.</p>
+      <p class="note">Breathe until you end the session, or for a set time.</p>
       <fieldset><legend>Stop after</legend><div class="chips" id="limit"></div></fieldset>
       <div class="row" id="customRow" hidden><label for="customMin">Custom length <output id="customOut" for="customMin"></output></label>
         <input id="customMin" type="range" min="5" max="240" step="5"></div>

@@ -691,7 +691,7 @@ final class AudioController {
 
     private var nowPlayingTitle: String {
         if settings.track == .classical, library.pieces.indices.contains(currentPiece) { return library.pieces[currentPiece].heading }
-        return settings.track == .musicApp ? "Breath" : settings.track.name
+        return settings.track == .musicApp || settings.track == .breathOnly ? "Breath" : settings.track.name
     }
 
     private var nowPlayingArtist: String {

@@ -65,6 +65,8 @@ struct AdjustRow: View {
 struct AdjustSoundView: View {
     @ObservedObject var model: AppModel
     @State private var showFine = false
+    /// What the sound was before Reset, so it can be undone until the sound is changed again or the sheet closes.
+    @State private var undo: SoundAdjust?
 
     private var track: MusicTrack { model.settings.track }
     private var current: SoundAdjust { model.settings.adjustment(track) }
@@ -72,6 +74,7 @@ struct AdjustSoundView: View {
     private func store(_ a: SoundAdjust) {
         let key = String(track.rawValue)
         model.settings.adjust[key] = a == SoundAdjust.designed(track) ? nil : a
+        undo = nil
     }
 
     private func value(_ path: WritableKeyPath<SoundAdjust, Double>) -> Binding<Double> {
@@ -135,7 +138,16 @@ struct AdjustSoundView: View {
                     .transition(.opacity)
                 }
 
-                Button("Reset to how it was designed") { model.settings.adjust[String(track.rawValue)] = nil }
+                Button(undo == nil ? "Reset to how it was designed" : "Undo reset") {
+                    let key = String(track.rawValue)
+                    if let undo {
+                        model.settings.adjust[key] = undo
+                        self.undo = nil
+                    } else if let saved = model.settings.adjust[key] {
+                        undo = saved
+                        model.settings.adjust[key] = nil
+                    }
+                }
                     .font(.body.weight(.semibold))
                     .foregroundStyle(tint)
                     .frame(maxWidth: .infinity, minHeight: 44)

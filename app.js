@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const S = { bpm: 6, ratio: 'even', cue: 'bowl', breathVol: 35, musicVol: 55, room: true, ease: false, track: 'brown', limit: 0, visual: 'lava', palette: 'sunset', open: null, words: true, countdown: false, piece: 0, repeatOne: false, saveAll: false, customMin: 40, mode: 'timer', swellMin: 25, restMin: 5, rounds: 4 };
+  const S = { bpm: 6, ratio: 'even', cue: 'bowl', breathVol: 70, musicVol: 50, room: true, ease: false, track: 'brown', limit: 0, visual: 'lava', palette: 'sunset', open: null, words: true, piece: 0, repeatOne: false, saveAll: false, customMin: 40, mode: 'timer', swellMin: 25, restMin: 5, rounds: 4 };
   try { Object.assign(S, JSON.parse(localStorage.getItem('breathing-room') || '{}')); } catch (e) {}
   /* "Audio files" was replaced by the classical mix. */
   if (S.track === 'own') S.track = 'classical';
@@ -15,7 +15,7 @@
   if (!S.adjust || typeof S.adjust !== 'object') S.adjust = {};
   /* The interval switch became a tab. */
   if (S.intervals) S.mode = 'interval';
-  delete S.intervals;
+  delete S.intervals; delete S.countdown;
   const save = () => { try { localStorage.setItem('breathing-room', JSON.stringify(S)); } catch (e) {} };
 
   /* Anonymous counts, passed on to PostHog by functions/ingest.js on Swellotic's own site. Nothing is stored on the device
@@ -61,7 +61,8 @@
     ambient: ['Ambient', 'Slow, warm chords that drift gently from one to the next.' + MADE],
     keys: ['Soft keys', 'Quiet, unhurried piano notes over a low note every few seconds.' + MADE],
     classical: ['Classical mix', 'Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use.'],
-    none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. If the breaths are hard to hear, turn your music app down, or on a phone, turn Breath up.']
+    none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. If the breaths are hard to hear, turn your music app down, or on a phone, turn Breath up.'],
+    off: ['None', 'Just the breaths, with no background sound.']
   };
   const TRACKS = { ...MOODS, ...NOISES, ...MUSICS };
   if (!TRACKS[S.track]) S.track = 'brown';
@@ -88,7 +89,7 @@
   const designed = k => ({ distance: 0, tone: 0, bands: BANDS.map(() => 0), layers: {}, ...(DESIGNED[k] || {}) });
   const adj = k => { const d = designed(k), a = S.adjust[k] || {}; return { ...d, ...a, bands: a.bands || d.bands, layers: { ...d.layers, ...(a.layers || {}) } }; };
   const layerValue = (a, key) => a.layers[key] ?? 50;
-  const adjustable = k => k !== 'none';
+  const adjustable = k => k !== 'none' && k !== 'off';
   const LIMITS = { 0: 'No limit', 25: '25 min', 50: '50 min', 90: '90 min', custom: 'Custom' };
   const limitMin = () => S.limit === 'custom' ? S.customMin : +S.limit;
   const ROUNDS = { 0: 'Until I stop', 2: '2 rounds', 4: '4 rounds', 6: '6 rounds' };
@@ -234,7 +235,7 @@
   function keyInfo() {
     if (!running || !('mediaSession' in navigator) || !window.MediaMetadata) return;
     const p = S.track === 'classical' && pieces.length ? piece() : null;
-    const title = p ? `${p.composer}: ${p.title}` : TRACKS[S.track][0], artist = p ? p.performer : 'Swellotic', m = navigator.mediaSession.metadata;
+    const title = p ? `${p.composer}: ${p.title}` : S.track === 'off' || S.track === 'none' ? 'Breath' : TRACKS[S.track][0], artist = p ? p.performer : 'Swellotic', m = navigator.mediaSession.metadata;
     if (m && m.title === title && m.artist === artist) return;
     navigator.mediaSession.metadata = new MediaMetadata({ title, artist, artwork: [{ src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }] });
   }
@@ -958,8 +959,6 @@
       level = p.type === 'in' ? eased : 1 - eased;
       const word = running && segment === 'rest' ? 'Rest' : p.type === 'in' ? 'In' : 'Out';
       if ($('word').textContent !== word) $('word').textContent = word;
-      const left = Math.ceil(p.end - t), info = `${left} s left  ·  ${p.bpm.toFixed(1)} breaths/min`;
-      if ($('timing').textContent !== info) $('timing').textContent = info;
     }
     const pal = PALETTES[S.palette] || PALETTES.sunset;
     ground(pal, w, h);
@@ -975,13 +974,13 @@
   /* Controls */
   function paint() {
     $('bpm').value = S.bpm; $('breathVol').value = S.breathVol; $('musicVol').value = S.musicVol;
-    $('room').checked = S.room; $('ease').checked = S.ease; $('words').checked = S.words; $('countdown').checked = S.countdown;
+    $('room').checked = S.room; $('ease').checked = S.ease; $('words').checked = S.words;
     const c = 60 / S.bpm, i = c * RATIOS[S.ratio][1];
     $('bpmOut').textContent = `${S.bpm} (${i.toFixed(1)} s in, ${(c - i).toFixed(1)} s out)`;
-    const appMusic = S.track === 'none';
-    $('musicVol').disabled = appMusic; $('roomRow').hidden = appMusic;
+    const appMusic = S.track === 'none', quiet = S.track === 'off';
+    $('musicVol').disabled = appMusic || quiet; $('roomRow').hidden = appMusic || quiet;
     $('breathOut').textContent = S.breathVol ? S.breathVol + '%' : 'Silent';
-    $('musicOut').textContent = appMusic ? 'In your music app' : S.musicVol + '%';
+    $('musicOut').textContent = appMusic ? 'In your music app' : quiet ? 'None' : S.musicVol + '%';
     $('sum-pace').textContent = `${S.bpm} a minute, ${CUES[S.cue]}`;
     $('sum-music').textContent = TRACKS[S.track][0] + (adjustable(S.track) && changed(S.track) ? ', adjusted' : '');
     paintAdjust();
@@ -992,8 +991,8 @@
     $('customMin').value = S.customMin; $('customOut').textContent = `${S.customMin} min`; $('customRow').hidden = S.limit !== 'custom';
     $('swellMin').value = S.swellMin; $('swellOut').textContent = `${S.swellMin} min`;
     $('restMin').value = S.restMin; $('restOut').textContent = `${S.restMin} min`;
-    $('intervalNote').textContent = +S.rounds ? `${S.rounds} swells with a rest between each, ${sessionLength() / 60} minutes in all.` : 'Swell and rest take turns until you press stop.';
-    $('word').hidden = !S.words; $('timing').hidden = !S.countdown;
+    $('intervalNote').textContent = +S.rounds ? `${S.rounds} swells with a rest between each, ${sessionLength() / 60} minutes in all.` : 'Swell and rest take turns until you end the session.';
+    $('word').hidden = !S.words;
     document.documentElement.style.setProperty('--tint', PALETTES[S.palette].tint);
     [['breathVol', 0, 100], ['musicVol', 0, 100], ['bpm', 2, 12], ['customMin', 5, 240], ['swellMin', 5, 90], ['restMin', 1, 30]].forEach(([id, lo, hi]) => $(id).style.setProperty('--v', ($(id).value - lo) / (hi - lo) * 100 + '%'));
     $('classical').hidden = $('nowPlaying').hidden = S.track !== 'classical'; paintPiece(); paintSaved(); $('trackNote').textContent = TRACKS[S.track][1];
@@ -1007,7 +1006,6 @@
   bind('room', 'room', e => e.checked);
   bind('ease', 'ease', e => e.checked);
   bind('words', 'words', e => e.checked);
-  bind('countdown', 'countdown', e => e.checked);
   bind('customMin', 'customMin', e => +e.value);
   chips($('rounds'), 'rounds', ROUNDS, 'rounds', () => { S.rounds = +S.rounds; save(); paint(); });
   /* Timer and Interval tabs: the open tab is the kind of session. Arrow keys move between them, as tabs usually do. */
@@ -1087,6 +1085,7 @@
     if (Object.keys(layers).length) keep.layers = layers;
     if (Object.keys(keep).length) S.adjust[k] = keep; else delete S.adjust[k];
     save(); if (voice && voice.kind === k) applyAdjust(voice);
+    if (undo) { undo = null; paintReset(); }
     $('adjustSum').textContent = summary(k); $('fineSum').textContent = fineText(k);
     $('sum-music').textContent = TRACKS[S.track][0] + (changed(S.track) ? ', adjusted' : '');
   }
@@ -1096,7 +1095,7 @@
     const k = S.track; $('adjustBtn').hidden = !adjustable(k);
     if (!adjustable(k)) return;
     const a = adj(k);
-    $('adjustTitle').textContent = TRACKS[k][0]; $('adjustSum').textContent = summary(k); $('fineSum').textContent = fineText(k);
+    $('adjustTitle').textContent = TRACKS[k][0]; $('adjustSum').textContent = summary(k); $('fineSum').textContent = fineText(k); paintReset();
     $('adjDistance').value = a.distance; fill($('adjDistance'), 0, 100);
     $('adjTone').value = a.tone; fill($('adjTone'), -100, 100);
     const box = $('layers'); box.textContent = '';
@@ -1122,8 +1121,16 @@
   $('adjDistance').addEventListener('input', e => { fill(e.target, 0, 100); store(S.track, x => { x.distance = +e.target.value; }); });
   $('adjTone').addEventListener('input', e => { fill(e.target, -100, 100); store(S.track, x => { x.tone = +e.target.value; }); });
   $('fineBtn').addEventListener('click', () => { const open = $('fine').hidden; $('fine').hidden = !open; $('fineBtn').setAttribute('aria-expanded', String(open)); });
-  $('adjustReset').addEventListener('click', () => { delete S.adjust[S.track]; save(); if (voice && voice.kind === S.track) applyAdjust(voice); paint(); });
+  /* Reset offers an undo, until the sound is changed again or the sheet closes. */
+  let undo = null;
+  const paintReset = () => { $('adjustReset').textContent = undo && undo.track === S.track ? 'Undo reset' : 'Reset to how it was designed'; };
+  $('adjustReset').addEventListener('click', () => {
+    if (undo && undo.track === S.track) { S.adjust[S.track] = undo.adjust; undo = null; }
+    else if (S.adjust[S.track]) { undo = { track: S.track, adjust: S.adjust[S.track] }; delete S.adjust[S.track]; }
+    save(); if (voice && voice.kind === S.track) applyAdjust(voice); paint();
+  });
   function setAdjust(open) {
+    if (!open) undo = null;
     if (open) { paintAdjust(); $('fine').hidden = true; $('fineBtn').setAttribute('aria-expanded', 'false'); }
     $('adjustSheet').classList.toggle('open', open); $('scrim').classList.toggle('open', open);
     $('app').inert = open; $('adjustBtn').setAttribute('aria-expanded', String(open));

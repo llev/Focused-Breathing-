@@ -22,7 +22,7 @@ struct ContentView: View {
                     // On iPad and Mac, Session is a popover by its button. On iPhone it becomes a sheet.
                     .popover(isPresented: $showSession) {
                         SessionSheet(model: model) { showSession = false }
-                            .frame(minWidth: sizeClass == .regular ? 400 : nil, minHeight: sizeClass == .regular ? 560 : nil)
+                            .frame(width: sizeClass == .regular ? 420 : nil)
                             .presentationCompactAdaptation(.sheet)
                             .presentationDetents([.medium, .large])
                             .presentationDragIndicator(.visible)
@@ -101,7 +101,7 @@ struct ContentView: View {
     }
 }
 
-/// "In", "Out" or "Rest", the optional countdown, and the session button, which doubles as the clock while playing.
+/// "In", "Out" or "Rest", and the session button, which doubles as the clock while playing.
 struct PhaseLabel: View {
     @ObservedObject var model: AppModel
     let openSession: () -> Void
@@ -116,15 +116,6 @@ struct PhaseLabel: View {
                         .minimumScaleFactor(0.5)
                         .lineLimit(1)
                         .sceneShadow()
-                }
-                if model.settings.countdown {
-                    let left = max(0, Int(ceil(frame.phase.end - frame.time)))
-                    Text("\(left) s left  ·  \(String(format: "%.1f", frame.phase.bpm)) breaths/min")
-                        .font(.system(size: 15, weight: .medium).monospacedDigit())
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 5)
-                        .frostedCapsule()
-                        .accessibilityHidden(true)
                 }
                 Button(action: openSession) {
                     HStack(spacing: 7) {
@@ -215,8 +206,8 @@ struct PlayerBar: View {
             VStack(spacing: 4) {
                 MixSlider(title: "Breath", value: s.breathVolume == 0 ? "Silent" : "\(Int(s.breathVolume))%",
                           number: $model.settings.breathVolume, disabled: false)
-                MixSlider(title: "Sounds", value: musicApp ? "In your music app" : "\(Int(s.musicVolume))%",
-                          number: $model.settings.musicVolume, disabled: musicApp)
+                MixSlider(title: "Sounds", value: musicApp ? "In your music app" : s.track == .breathOnly ? "None" : "\(Int(s.musicVolume))%",
+                          number: $model.settings.musicVolume, disabled: musicApp || s.track == .breathOnly)
             }
 
             Button(action: openSettings) {

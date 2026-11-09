@@ -81,8 +81,8 @@ struct Settings: Codable, Equatable {
     var bpm = 6.0
     var pattern = BreathPattern.even
     var sound = BreathSound.bowl
-    var breathVolume = 35.0
-    var musicVolume = 55.0
+    var breathVolume = 70.0
+    var musicVolume = 50.0
     var room = true
     var lowerMusicApp = true
     var ease = false
@@ -102,7 +102,6 @@ struct Settings: Codable, Equatable {
     var scene = SceneStyle.lava
     var palette = Palette.sunset
     var showWords = true
-    var countdown = false
     var openSections: Set<String> = ["breathing"]
     /// Sections closed in the iPad and Mac side panel, where there's room for all of them to start open.
     var closedInPanel: Set<String> = []
@@ -158,7 +157,6 @@ struct Settings: Codable, Equatable {
         scene = v(.scene, d.scene)
         palette = v(.palette, d.palette)
         showWords = v(.showWords, d.showWords)
-        countdown = v(.countdown, d.countdown)
         openSections = v(.openSections, d.openSections)
         closedInPanel = v(.closedInPanel, d.closedInPanel)
         adjust = v(.adjust, d.adjust)
@@ -221,16 +219,17 @@ extension MusicTrack {
         case .keys: return "Soft keys"
         case .classical: return "Classical mix"
         case .musicApp: return "My music app"
+        case .breathOnly: return "None"
         }
     }
 
     /// The Sounds section's three groups. Rain and Wind aren't offered any more: the moods replaced them.
     static let moods: [MusicTrack] = [.window, .storm, .fire, .stream, .beach, .park, .hill]
     static let noise: [MusicTrack] = [.brown, .pink, .green]
-    static let gentleMusic: [MusicTrack] = [.ambient, .keys, .classical, .musicApp]
+    static let gentleMusic: [MusicTrack] = [.ambient, .keys, .classical, .musicApp, .breathOnly]
 
-    /// Every sound except "My music app" can be adjusted.
-    var adjustable: Bool { self != .musicApp }
+    /// Every sound except "My music app" and None can be adjusted.
+    var adjustable: Bool { self != .musicApp && self != .breathOnly }
 
     var note: String {
         switch self {
@@ -249,6 +248,7 @@ extension MusicTrack {
         case .keys: return "Quiet, unhurried piano notes over a low note every few seconds. Made on your phone, so it works offline."
         case .classical: return "Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use."
         case .musicApp: return "Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. The side buttons change both, so use the Breath slider to balance them."
+        case .breathOnly: return "Just the breaths, with no background sound."
         default: return "Made on your phone, so it works offline."
         }
     }

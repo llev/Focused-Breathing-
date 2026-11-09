@@ -7,20 +7,33 @@ struct SessionSheet: View {
     @Environment(\.dismiss) private var dismiss
     /// Closes the panel. Side panels and popovers are closed by their owner, so it's passed in.
     var close: (() -> Void)? = nil
+    @State private var contentHeight: CGFloat = 320
 
     var body: some View {
         let s = model.settings
         let tint = s.palette.tint
-        NavigationStack {
+        VStack(spacing: 0) {
+            // Its own header rather than a navigation bar, which a popover on iPad cut off at the top.
+            ZStack {
+                Text("Session").font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+                HStack {
+                    Spacer()
+                    Button("Done") { if let close { close() } else { dismiss() } }
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(tint)
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 12)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Picker("Session type", selection: $model.settings.mode) {
-                        ForEach(SessionMode.allCases, id: \.self) { Text($0.name).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
+                    SegmentedChoice(title: "Session type", choices: SessionMode.allCases.map { Choice(value: $0, name: $0.name) },
+                                    selection: $model.settings.mode)
 
                     if s.mode == .timer {
-                        Note(text: "Breathe until you press stop, or for a set time.")
+                        Note(text: "Breathe until you end the session, or for a set time.")
                         ChipPicker(title: "Stop after",
                                    choices: Settings.limits.map { Choice(value: $0, name: Self.limitName($0)) },
                                    selection: $model.settings.limit, tint: tint)
@@ -36,19 +49,18 @@ struct SessionSheet: View {
                                    selection: $model.settings.rounds, tint: tint)
                         Note(text: s.rounds > 0
                              ? "\(s.rounds) swells with a rest between each, \(Int(s.sessionLength / 60)) minutes in all."
-                             : "Swell and rest take turns until you press stop.")
+                             : "Swell and rest take turns until you end the session.")
                     }
                 }
                 .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frosted(cornerRadius: 22)
                 .padding(14)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
             }
-            .navigationTitle("Session")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { if let close { close() } else { dismiss() } } }
-            }
+            // A popover on iPad takes its ideal height, so it fits the content instead of leaving space below.
+            .frame(idealHeight: contentHeight)
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
