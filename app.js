@@ -61,7 +61,7 @@
     ambient: ['Ambient', 'Slow, warm chords that drift gently from one to the next.' + MADE],
     keys: ['Soft keys', 'Quiet, unhurried piano notes over a low note every few seconds.' + MADE],
     classical: ['Classical mix', 'Calm public domain recordings made for Musopen, shared on Wikimedia Commons. The set repeats when it reaches the end, and pieces you listen to are saved for offline use.'],
-    none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. On a phone, the side buttons change both, so use the Breath slider to balance them.']
+    none: ['My music app', 'Play music in Spotify, Apple Music or any other app, then press play here. The Breath slider changes only the breaths, and your music app controls the music. If the breaths are hard to hear, turn your music app down, or on a phone, turn Breath up.']
   };
   const TRACKS = { ...MOODS, ...NOISES, ...MUSICS };
   if (!TRACKS[S.track]) S.track = 'brown';
@@ -206,16 +206,26 @@
   /* Media keys, AirPods and headphone buttons. Browsers only send these to a page that's playing an audio element, and Web
      Audio doesn't count, so a silent one plays alongside a session. Without it, a Mac sends play to the Music app instead. */
   const keys = new Audio(); keys.loop = true;
-  function silence() {
-    const rate = 8000, n = rate * 10, b = new DataView(new ArrayBuffer(44 + n)), text = (at, t) => [...t].forEach((c, i) => b.setUint8(at + i, c.charCodeAt(0)));
+  function silence(seconds) {
+    const rate = 8000, n = rate * seconds, b = new DataView(new ArrayBuffer(44 + n)), text = (at, t) => [...t].forEach((c, i) => b.setUint8(at + i, c.charCodeAt(0)));
     text(0, 'RIFF'); b.setUint32(4, 36 + n, true); text(8, 'WAVEfmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true);
     b.setUint16(22, 1, true); b.setUint32(24, rate, true); b.setUint32(28, rate, true); b.setUint16(32, 1, true); b.setUint16(34, 8, true);
     text(36, 'data'); b.setUint32(40, n, true);
     for (let i = 0; i < n; i++) b.setUint8(44 + i, 128);
     return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
   }
+  /* On Android, a long audio element takes over the sound and pauses other apps, so it's left out for My music app.
+     Instead, a 2 second silent clip plays on repeat. Chrome treats clips under 5 seconds as short sounds and asks Android
+     to turn other apps down rather than pause them, which should lower the music app while a session plays. This needs
+     checking on a real Android phone; if it doesn't lower the music, hide My music app on Android as on iPhone. */
+  const android = /Android/.test(navigator.userAgent);
+  const duck = new Audio(); duck.loop = true;
+  const keysAllowed = () => !(android && S.track === 'none');
   function mediaKeys(state) {
-    if (state === 'playing') { if (!keys.src) keys.src = silence(); keys.play().catch(() => {}); } else keys.pause();
+    const lower = android && S.track === 'none' && state === 'playing';
+    if (lower) { if (!duck.src) duck.src = silence(2); duck.play().catch(() => {}); } else duck.pause();
+    if (state === 'playing' && !keysAllowed()) state = 'none';
+    if (state === 'playing') { if (!keys.src) keys.src = silence(10); keys.play().catch(() => {}); } else keys.pause();
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.playbackState = state;
     if (state !== 'none') keyInfo();
@@ -969,7 +979,7 @@
     const c = 60 / S.bpm, i = c * RATIOS[S.ratio][1];
     $('bpmOut').textContent = `${S.bpm} (${i.toFixed(1)} s in, ${(c - i).toFixed(1)} s out)`;
     const appMusic = S.track === 'none';
-    $('musicVol').disabled = appMusic; $('room').disabled = appMusic;
+    $('musicVol').disabled = appMusic; $('roomRow').hidden = appMusic;
     $('breathOut').textContent = S.breathVol ? S.breathVol + '%' : 'Silent';
     $('musicOut').textContent = appMusic ? 'In your music app' : S.musicVol + '%';
     $('sum-pace').textContent = `${S.bpm} a minute, ${CUES[S.cue]}`;
@@ -1014,8 +1024,11 @@
   /* On iPhone and iPad, a web app can't keep playing in the background while mixing with another app, so "My music app" stops
      whenever you switch to it. Hide it there until there's a native app. */
   const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (appleMobile) { delete TRACKS.none; delete MUSICS.none; if (S.track === 'none') S.track = 'classical'; }
-  const onTrack = () => { setSession(); cuePiece(); keyInfo(); preload(S.track); if (S.track === 'storm') unlockRolls(); paint(); refreshVoice(); };
+  /* On Android it's only worth offering if the music app gets quieter, which hasn't been tested on a real phone yet.
+     Add ?musicapp to the address to show it there for testing. */
+  const androidUntested = android && !new URLSearchParams(location.search).has('musicapp');
+  if (appleMobile || androidUntested) { delete TRACKS.none; delete MUSICS.none; if (S.track === 'none') S.track = 'classical'; }
+  const onTrack = () => { setSession(); cuePiece(); if (running && !held) mediaKeys('playing'); preload(S.track); if (S.track === 'storm') unlockRolls(); paint(); refreshVoice(); };
   chips($('track-moods'), 'track', MOODS, 'track', onTrack);
   chips($('track-noise'), 'track', NOISES, 'track', onTrack);
   chips($('track-music'), 'track', MUSICS, 'track', onTrack);
