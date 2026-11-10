@@ -2,7 +2,9 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var model: AppModel
-    @State private var showSettings = false
+    /// Kept with the window, because iPadOS reopens the side panel if it was open when the app was last used.
+    /// Storing it means the Settings button and the panel always agree.
+    @SceneStorage("settingsOpen") private var showSettings = false
     @State private var showSession = false
     @State private var showSplash = true
     @Environment(\.scenePhase) private var scenePhase
@@ -31,10 +33,6 @@ struct ContentView: View {
                 footer
             }
             .padding(16)
-
-            if showSplash {
-                SplashView { showSplash = false }
-            }
         }
         // On iPad and Mac, Settings is a side panel, so the scene and player bar stay in view, as in the web app on wide
         // screens. On iPhone the same panel becomes a sheet from the bottom.
@@ -44,6 +42,12 @@ struct ContentView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        // Over everything, including the side panel, so the launch screen covers the whole window.
+        .overlay {
+            if showSplash {
+                SplashView { showSplash = false }
+            }
+        }
         #if DEBUG
         // Lets GitHub Actions open a panel by itself for screenshots, after the launch screen. Never in release builds.
         .task {
@@ -52,6 +56,8 @@ struct ContentView: View {
             if panel == "settings" { showSettings = true } else if panel == "session" { showSession = true }
         }
         #endif
+        // On iPhone the panel is a sheet, which would cover the launch screen, so it always starts closed there.
+        .onAppear { if sizeClass != .regular { showSettings = false } }
         .onChange(of: scenePhase) { _, phase in model.scenePhaseChanged(phase) }
         .preferredColorScheme(.dark)
         .tint(model.tint)
